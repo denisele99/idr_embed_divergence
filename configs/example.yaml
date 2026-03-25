@@ -1,0 +1,53 @@
+project:
+  name: idr-functional-divergence
+  seed: 123
+  threads: 8
+
+paths:
+  data_dir: data
+  results_dir: results
+  cache_dir: .cache
+
+inputs:
+  species: human
+  ensembl_release: 112
+  uniprot_release: "2025_04"
+  idr_table: data/processed/human_idrs.tsv
+  domain_table: data/processed/human_domains.tsv
+
+go:
+  obo_path: data/metadata/go-basic.obo
+  gaf_path: data/metadata/goa_human.gaf.gz
+  namespace: BP              # BP / MF / CC
+  exclude_evidence: ["IEA"]
+  min_genes: 5
+  correction: fdr_bh         # bonferroni, holm, fdr_bh...
+  alpha: 0.05
+
+distance:
+  metric: neighbour_distance
+  background: human_idrs     # human_idrs or human_domains
+  log_transform:
+    enabled: true
+    base: 10
+    epsilon: 1e-8            # only used if zeros possible
+
+embeddings:
+  model_name: "Rostlab/prot_bert"
+  checkpoint_path: models/idr_lm_final.pt   # or URL
+  pooling: mean
+  layer: last
+  max_length: 512
+  batch_size: 16
+  device: cuda               # cpu/cuda
+
+permutation_test:
+  enabled: true
+  n_permutations: 1000
+  null_sampling: random_unrelated_idrs
+  two_sided: false
+
+figures:
+  make: true
+  formats: ["pdf", "png"]
+  dpi: 300

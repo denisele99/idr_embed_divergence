@@ -1,0 +1,145 @@
+mode: embeddings
+
+inputs:
+  background_emb: Paper/data/embed/human_idrs_esm1b.csv
+  ortholog_emb: Paper/data/embed/orthologs/
+
+distance:
+  metric: cosine
+  normalize: true
+  dtype: float32
+  chunk_size: 2000
+
+filtering:
+  enabled: true
+  homolog_annotation: Paper/data/annotations/homologs.tsv
+  ortholog_types: [ortholog_one2one]
+  species_threshold: 0.5
+  proteome_species_count_threshold: 1
+  min_orthologs: 10
+
+targets:
+  mode: genes
+  gene_ids: [CDK1, CDK2, CDK3]
+  #one_family: true
+
+outputs:
+  out_results: ./FND_out.csv
+  out_matrix: ./matrices/cdk_matrix.npz
+  overwrite: false
+
+verbose: true
+
+
+# config_level1_run_genes.yml
+# Use with: python nn_divergence_cli_level1.py run genes --config config_level1_run_genes.yml
+# (requires the small --config/@file support shown below)
+
+run:
+  subcommand: genes
+
+common:
+  # Choose ONE input mode:
+  # dist_matrix: /home/.../matrix.npz
+  background_emb: Paper/data/embed/human_idrs_esm1b.csv
+  ortholog_emb: Paper/data/embed/orthologs/
+
+  out_results: ./FND_out.csv
+  out_matrix: /home/moseslab/denise/Paper/data/neighbour_distance_matrix/cdk_matrix.npz
+  overwrite: false
+
+  metric: cosine
+  normalize: true
+  dtype: float32
+  chunk_size: 2000
+  n_jobs: 1
+
+  id_col: 0
+  embedding_cols: null
+
+  filter_orthologs: true
+  homolog_annotation: Paper/data/annotations/homologs.tsv
+  ortholog_type:
+    - ortholog_one2one
+  species_threshold: 0.5
+  proteome_species_count_threshold: 1
+  min_orthologs: 10
+
+  verbose: true
+
+targets:
+  gene_ids:
+    - CDK1
+    - CDK2
+    - CDK3
+  one_family: true
+
+
+# config_level1_run_fam_map.yml
+run:
+  subcommand: fam-map
+
+common:
+  dist_matrix: /home/moseslab/denise/Paper/data/neighbour_distance_matrix/all_matrix.npz
+  out_results: ./FND_by_family.csv
+  out_matrix: null
+  overwrite: false
+
+  metric: cosine
+  normalize: true
+  dtype: float32
+  chunk_size: 2000
+  n_jobs: 1
+
+  id_col: 0
+  embedding_cols: null
+
+  filter_orthologs: true
+  homolog_annotation: Paper/data/annotations/homologs.tsv
+  ortholog_type: [ortholog_one2one]
+  species_threshold: 0.5
+  proteome_species_count_threshold: 1
+  min_orthologs: 10
+
+  verbose: true
+
+targets:
+  fam_map: families.json         # can be json/yml/csv/tsv as supported
+  only_fams: null                # or: ["CDK", "Cyclin"]
+
+
+# config_level1_run_random.yml
+run:
+  subcommand: random
+
+common:
+  dist_matrix: /home/moseslab/denise/Paper/data/neighbour_distance_matrix/all_matrix.npz
+  out_results: ./FND_random.csv
+  out_matrix: null
+  overwrite: false
+
+  metric: cosine
+  normalize: true
+  dtype: float32
+  chunk_size: 2000
+  n_jobs: 1
+
+  id_col: 0
+  embedding_cols: null
+
+  filter_orthologs: false
+  homolog_annotation: null
+  ortholog_type: null
+  species_threshold: 0.5
+  proteome_species_count_threshold: 1
+  min_orthologs: 10
+
+  verbose: true
+
+targets:
+  universe_file: all_genes.txt
+  exclude_file: null
+  n_fams: 100
+  fam_size: 10
+  seed: 7
+  allow_overlap: false

@@ -1,0 +1,18 @@
+
+go_obo: /home/moseslab/denise/Paper/data/annotations/go_2024.obo
+go_annotations: /home/moseslab/denise/Paper/data/annotations/uniprot_GO_annotations_2024.tsv #uniprotkb_Human_AND_model_organism_9606_2024_08_20.tsv'
+
+#INPUTS
+k: 50
+alpha: 0.01 #0.01
+
+#DATA
+#Need to use exact ids found in target_embeddings for query_ids
+query_ids: Q8IZL9_PFAM_7_288,P21127_PFAM_441_723,P50613_PFAM_12_295,P50750_PFAM_19_315,O94921_PFAM_135_419,P24941_PFAM_4_286,P11802_PFAM_6_295,P49336_PFAM_26_335,P06493_PFAM_4_287,Q00526_PFAM_4_286,Q00534_PFAM_13_300,Q00535_PFAM_4_286,Q00536_PFAM_165_446,Q00537_PFAM_192_473,Q14004_PFAM_707_998,Q15131_PFAM_39_323,Q07002_PFAM_144_425,Q96Q40_PFAM_105_387,Q9NYV4_PFAM_729_1020,Q9BWU1_PFAM_26_335,Q9UQ88_PFAM_429_711 #Q96Q40_idr_1,Q9BWU1_idr_1,P50750_idr_1,Q9UQ88_idr_1 #Q96Q40_IDR_1_89,Q9BWU1_IDR_355_502,P50750_IDR_322_372,Q9UQ88_IDR_1_407 #,Q00537_IDR_1_183,Q00536_IDR_1_114,Q14004_IDR_1_694,P49336_IDR_338_464,Q14004_IDR_1000_1399,P21127_IDR_1_420,O94921_IDR_1_130,P50613_IDR_311_346,Q9NYV4_IDR_1_717,Q07002_IDR_1_93,Q9NYV4_IDR_1021_1344 #ID1,ID2.. or ALL
+query_all: false #If true, query all ids found in target_embeddings file
+search_method: knn #knn | BLAST | RANDOM
+target_embeddings: /home/moseslab/denise/Paper/data/embed/human_PFAM_esm_updated.csv #/home/moseslab/denise/Paper/data/embed/human_idr_pos_t5.csv #/home/moseslab/denise/Paper/data/embed/human_IDR_LM_30M_35ep.csv #/home/moseslab/denise/Paper/data/embed/human_idrs_esm1b.csv # # #
+target_blast_output: /home/moseslab/denise/Paper/data/blast_res/human_idrs_pos_blast_out_names.tsv #/home/moseslab/denise/Paper/data/blast_res/human_idrs_pos_blast_out.tsv #../data/blast_res/human_idrs_pos.txt
+
+#output
+output: /home/moseslab/denise/Paper/res/go_enrich/knn_enrichment_goa_CDKPFAM_bg_nodup_a01_03_20.csv

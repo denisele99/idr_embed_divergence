@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environments
+.env
+.venv/
+env/
+
+#File types
+*.log
+*.pyc
+*.out
+*.ipynb
+*.h5
+*.csv
+*.pkl
+*.tsv
+*.txt
+
+# Data 
+data/neighbour_dist_test/
+data/neighbour_distance_matrix/
+
+# Results
+res/*
+!res/.gitkeep
+
+#codes
+src/__pycache__/
+src/distances/__pycache__/
+src/distances/archive_scripts
+src/distances/current
+src/distances/ndist_valr
+
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/
+
+# OS
+.DS_Store
