@@ -6,7 +6,7 @@ import yaml
 import pandas as pd
 import time
 import json
-from compute_ndist import ComputeNDistanceDict, _load_embeddings, _load_ortholog_embeddings, _parse_ids,save_pickle, collect_values_by_key, load_fam_map
+from idr_diverge.distances.compute_ndist import ComputeNDistanceDict, _load_embeddings, _load_ortholog_embeddings, _parse_ids,save_pickle, collect_values_by_key, load_fam_map
 
 @dataclass(frozen=True)
 class InputsConfig:

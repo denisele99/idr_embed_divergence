@@ -29,9 +29,9 @@ res/*
 #codes
 src/__pycache__/
 src/distances/__pycache__/
-src/distances/archive_scripts
-src/distances/current
-src/distances/ndist_valr
+src/distances/archive_scripts/
+src/distances/current/
+src/distances/ndist_valr/
 
 
 # Jupyter

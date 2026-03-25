@@ -35,22 +35,15 @@ from math import comb
 import re
 from sklearn.metrics import pairwise_distances
 
-sys.path.append('/home/moseslab/denise/Paper/src/')
-
-from utils.helpers import transform_data
+#sys.path.append('/home/moseslab/denise/Paper/src/')
 
 #from utils.helper_functions import save_pickle,embedding_h5_to_dataframe, get_ortholog_prefixes, find_files_by_prefix, find_files_by_identifier, extract_IDs_from_end, read_pickle
 #from utils.filter_orthologs import filter_orthologs
 #from config import cdk_ids, human_idr_embed_path, human_pfam_embed_path, unrelated_genes, genedict, idr_ortho_embed_dir,protein_families
 
 #from helpers import load_config, combine_dicts, collect_values_by_key, merge_dict
-from utils.helpers import combine_dicts, merge_dict, collect_values_by_key, embedding_h5_to_dataframe,save_pickle,read_pickle, find_files_by_identifier, find_files_by_prefix, extract_IDs_from_end
-from distances.embed_distance import EmbedDistanceMatrix #_build_index_maps,
-
-from utils.helpers import load_config
-#CONFIG_PATH = '/home/moseslab/denise/Paper/configs/go_config.txt'
-CONFIG_PATH = '/home/moseslab/denise/Paper/src/distances/config_FND.yaml'
-CONFIG_DATA = load_config(CONFIG_PATH)
+from idr_diverge.utils.helpers import transform_data, combine_dicts, merge_dict, collect_values_by_key, embedding_h5_to_dataframe,save_pickle,read_pickle, find_files_by_identifier, find_files_by_prefix, extract_IDs_from_end
+from idr_diverge.distances.embed_distance import EmbedDistanceMatrix #_build_index_maps,
 
 
 # ----------------------------
@@ -458,11 +451,11 @@ OrthologRelationship = Literal[
     "ortholog_one2one_one2many",
 ]
 
-DEFAULT_HOMOL_REF = read_pickle(CONFIG_DATA['ensembl_homol_ref'])
+#DEFAULT_HOMOL_REF = read_pickle(CONFIG_DATA['ensembl_homol_ref'])
 
 def filter_ortholog_region_ids(
     ortholog_ids: Iterable[str], #ID format ENSEMBLID_GENE_SEGMENT_start_end
-    homology_ref: Dict = DEFAULT_HOMOL_REF,
+    homology_ref: Dict,
     relationship: OrthologRelationship = "ortholog_one2one",
     min_species_coverage: float = 0.5,
     min_species: int = 10,
