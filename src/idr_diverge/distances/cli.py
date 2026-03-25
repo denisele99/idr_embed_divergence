@@ -6,7 +6,7 @@ import yaml
 import pandas as pd
 import time
 import json
-from idr_diverge.distances.compute_ndist import ComputeNDistanceDict, _load_embeddings, _load_ortholog_embeddings, _parse_ids,save_pickle, collect_values_by_key, load_fam_map
+from idr_diverge.distances.compute_ndist import ComputeNDistanceDict, _load_embeddings, _load_ortholog_embeddings, _parse_ids,save_pickle, collect_values_by_key, load_fam_map, calc_FND
 
 @dataclass(frozen=True)
 class InputsConfig:
@@ -527,7 +527,7 @@ def _wait_for_file(path: Path, timeout_s: int = 86400, poll_s: int = 10) -> None
         time.sleep(poll_s)
 
 
-from Paper.src.distances.compute_ndist import calc_FND
+
 
 from pathlib import Path
 import pandas as pd

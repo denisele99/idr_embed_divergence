@@ -3,7 +3,7 @@ inputs:
   background_emb: /home/moseslab/denise/Paper/data/embed/human_PFAM_esm_updated.csv #/home/moseslab/denise/Paper/data/embed/human_idrs_esm1b.csv #/data/embeddings/human_idr_background.csv
   ortholog_emb: /home/moseslab/denise/Paper/data/embed/unrelated_pfam_sample_10_23_25_esm.h5 #/home/moseslab/denise/Paper/data/embed/CDK_PFAM_ortho_07_31_25_esm.csv #/home/moseslab/denise/embeddings/esm1b/idr_orthologs #/data/embeddings/orthologs/ #file of ortholog embeddings or directory of ortholog embeddings
   homolog_annotation: /home/moseslab/denise/Paper/data/annotations/ensembl_homol_reference_10-10.pkl #/data/annotations/ensembl_homology.pkl
-  fam_map: /home/moseslab/denise/Paper/src/distances/current/rand_genes_pfam.json #/home/moseslab/denise/Paper/src/distances/current/cdk_to_genes.json #/home/moseslab/denise/Paper/src/distances/current/family_to_genes.json #Optional but required if random_neighbour_divergence is false
+  fam_map: /home/moseslab/denise/Paper/src/idr_diverge/distances/input_args/rand_genes_pfam.json #/home/moseslab/denise/Paper/src/distances/current/cdk_to_genes.json #/home/moseslab/denise/Paper/src/distances/current/family_to_genes.json #Optional but required if random_neighbour_divergence is false
   #Optional inputs:
   #genes: null #list of specific genes to compute divergence for, if null compute for all genes in fam_map FORMAT: gene1,gene2,gene3
   #fam_id: null #specific family to compute divergence for, if null compute for all families in fam_map
