@@ -21,6 +21,8 @@ conda activate paper-env
 ```
 
 ## How to install
+git clone [link]
+inside repo: pip install -e .
 
 ## FULL ANALYSIS PIPELINE FOR REPRODUCIBILITY
 

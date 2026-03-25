@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: idr-diverge
+Version: 0.1.0
+Summary: Embedding-based analysis of IDR functional divergence
+Author: Denise Le
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: scikit-learn
