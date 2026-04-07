@@ -3,15 +3,13 @@
 import pandas as pd
 import numpy as np
 from collections import defaultdict
-import sys
+
 from pygosemsim import download, graph
 from pygosemsim import similarity
-import time
 
-sys.path.append('/home/moseslab/denise/Paper/src')
-from distances.current.core import _load_embeddings
-from distances.embed_distance import EmbedDistanceMatrix
-from go_enrichment.go_enrich_eval import go_bma_similarity
+from idr_diverge.distances.compute_ndist import _load_embeddings
+from idr_diverge.distances.embed_distance import EmbedDistanceMatrix
+from idr_diverge.go_enrichment.go_enrich_eval import go_bma_similarity, go_jaccard_similarity
 
 
 # def main():
@@ -95,7 +93,7 @@ def main():
     
     enrich_path='/home/moseslab/denise/Paper/res/go_enrich/knn_enrichment_goa_idr_bg_nodup_a01_03_13_EVAL.csv'
     embed_path = '/home/moseslab/denise/Paper/data/embed/human_idrs_esm1b.csv'
-    out_path = '/home/moseslab/denise/Paper/res/go_enrich/increasing_NN_mean_enrichment_sim.csv'
+    out_path = '/home/moseslab/denise/Paper/res/go_enrich/increasing_NN_mean_enrichment_bmasim.csv'
     
     embed_df = _load_embeddings(embed_path)
     emb_matrix = EmbedDistanceMatrix(embed_df)
@@ -166,7 +164,7 @@ def main1():
     
     enrich_path='/home/moseslab/denise/Paper/res/go_enrich/knn_enrichment_goa_idr_bg_nodup_a01_03_13_EVAL.csv'
     embed_path = '/home/moseslab/denise/Paper/data/embed/human_idrs_esm1b.csv'
-    out_path = '/home/moseslab/denise/Paper/res/go_enrich/increasing_NN_mean_enrichment_sim_03_20.csv'
+    out_path = '/home/moseslab/denise/Paper/res/go_enrich/increasing_NN_mean_enrichment_jaccsim_03_26.csv'
     
     embed_df = _load_embeddings(embed_path)
     emb_matrix = EmbedDistanceMatrix(embed_df)
@@ -226,12 +224,106 @@ def main1():
                 continue
             
             
-            go_sim = [go_bma_similarity(go_query, go_nn) for go_nn in nn_go_terms]
+            go_sim = [go_jaccard_similarity(go_query, go_nn) for go_nn in nn_go_terms]
+            #[go_bma_similarity(go_query, go_nn) for go_nn in nn_go_terms]
             #go_sim = [cached_go_bma_similarity(go_query_t,normalize_go(go_nn)) for go_nn in nn_go_terms]
             range_dict[query][f'{start}-{end}']=np.mean(go_sim) if go_sim else np.nan
             
         df_temp = pd.DataFrame.from_dict({query: range_dict[query]}, orient='index')
         df_temp.to_csv(out_path, mode='a', header=False)
 
+def main2():
+
+    enrich_path = '/home/moseslab/denise/Paper/res/go_enrich/knn_enrichment_goa_idr_bg_nodup_a01_03_13_EVAL.csv'
+    embed_path = '/home/moseslab/denise/Paper/data/embed/human_idrs_esm1b.csv'
+    out_path = '/home/moseslab/denise/Paper/res/go_enrich/increasing_NN_mean_enrichment_bmasim_03_26.csv'
+
+    embed_df = _load_embeddings(embed_path)
+    emb_matrix = EmbedDistanceMatrix(embed_df)
+    dm = emb_matrix.distance_matrix
+    all_ids = emb_matrix.ids
+    id_to_idx = {id_: k for k, id_ in enumerate(all_ids)}
+
+    ranges = [(1,2),(2, 50), (51, 100), (101, 200), (201, 500), (501, 1000),
+              (1001, 2000), (2001, 5000), (5001, 10000)]
+    max_end = max(end for _, end in ranges)
+
+    enrich_df = pd.read_csv(enrich_path)
+    enrich_dict = enrich_df.set_index('query_id')['term_adj_p'].apply(lambda x: list(eval(x).keys())).to_dict()
+
+    go_terms_by_idx = [enrich_dict.get(id_, []) for id_ in all_ids]
+    normalized_go_by_idx = [tuple(normalize_go(go)) if go else tuple() for go in go_terms_by_idx]
+    
+    
+    df_ranges = pd.read_csv('/home/moseslab/denise/Paper/res/go_enrich/increasing_NN_mean_enrichment_sim_03_20.csv',header=None)
+    current_ids = list(df_ranges[0])
+    df_ranges = None
+    
+    enriched_queries = list(enrich_df[enrich_df['terms'].map(eval).str.len() >0]['query_id'])
+    remaining_ids = list(set(enriched_queries).symmetric_difference(set(current_ids)))
+    enrich_df = None
+    results = []
+    batch_size = 10
+    buffer = []
+    
+    write_header= True
+
+    for query in remaining_ids:
+        print(query)
+        query_idx = id_to_idx.get(query)
+        go_query_t = normalized_go_by_idx[query_idx]
+        
+        if not go_query_t:
+            print(f"Skipping {query}.. go enrichments not found")
+            continue
+        
+        #print('Finding 50 NN')
+        row = dm[query_idx]
+        neighbours = np.argpartition(row, max_end + 1)[:max_end + 1]
+        neighbours = neighbours[neighbours != query_idx]
+        neighbours = neighbours[np.argsort(row[neighbours])]
+
+        #print('Calculating Go similarity')
+        sim_scores = []
+        for idx in neighbours[:max_end]:
+            go_nn_t = normalized_go_by_idx[idx]
+            if go_nn_t:
+                sim_scores.append(cached_go_bma_similarity(go_query_t, go_nn_t))
+            else:
+                sim_scores.append(np.nan)
+
+        sim_scores = np.array(sim_scores, dtype=float)
+
+        row_result = {"query_id": query}
+        for start, end in ranges:
+            vals = sim_scores[start-1:end]
+            vals = vals[~np.isnan(vals)]
+            row_result[f"{start}-{end}"] = vals.mean() if len(vals) else np.nan
+
+        buffer.append(row_result)
+        
+        if len(buffer) >= batch_size:
+            df_batch = pd.DataFrame(buffer)
+            df_batch.to_csv(
+                out_path,
+                mode="a",
+                header=write_header,
+                index=False
+            )
+            buffer.clear()
+            write_header = False
+        
+
+    #pd.DataFrame(results).to_csv(out_path, index=False)
+    if buffer:
+        df_batch = pd.DataFrame(buffer)
+        df_batch.to_csv(
+            out_path,
+            mode="a",
+            header=not os.path.exists(out_path),
+            index=False
+        )
+        
+
 if __name__ == '__main__':
-    main1()
+    main2()

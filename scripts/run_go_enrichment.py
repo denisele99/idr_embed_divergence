@@ -11,13 +11,11 @@
 #Dataset should be HUMAN embeddings
 
 import pandas as pd
-import sys
 import argparse
-sys.path.append('../src/')
 
-from go_enrichment.go_enrichment_ import DistanceMatrix,go_enrichment_from_blast,go_enrichment_random, load_go_annotations, _extract_gene_id
-from distances.current.core import _load_embeddings
-from utils.helpers import load_config
+from idr_diverge.go_enrichment.go_enrichment_ import DistanceMatrix,go_enrichment_from_blast,go_enrichment_random, load_go_annotations, _extract_gene_id
+from idr_diverge.distances.compute_ndist import _load_embeddings
+from idr_diverge.utils.helpers import load_config
 from typing import Dict, Iterable, List, Mapping, Sequence, Tuple, Optional, Any
 
 #CONFIG_PATH = '/home/moseslab/denise/Paper/configs/go_config.txt'

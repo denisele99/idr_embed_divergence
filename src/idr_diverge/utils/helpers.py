@@ -232,28 +232,6 @@ def extract_IDs_from_end(
     return unique
 
 
-# def find_files_by_prefix(prefixes: List[str], input_dir: str, endswith: str = None) -> List[str]:
-# #Original: select_files(prefixes,input_dir,endswith=None):
-
-#     """
-#     Select files from a directory (including subdirectories) whose filenames start with any of the given prefixes.
-
-#     Args:
-#         prefixes (list of str): List of filename prefixes to match (e.g., ['P12345', 'Q99999']).
-#         input_dir (str): Path to the root directory to search in (searched recursively).
-#         endswith (str): End of file name (ex. '.fa')
-
-#     Returns:
-#         list of str: Paths to files whose base filenames start with any of the given prefixes.
-#     """
-#     import glob
-    
-#     if endswith:
-#         files = glob.glob(f'{input_dir}/**/*{endswith}', recursive=True)
-#     else:
-#         files = glob.glob(f'{input_dir}/**/*', recursive=True)
-#     outpaths = [file for file in files if any(file.split('/')[-1].startswith(prefix) for prefix in prefixes)]
-#     return outpaths
 
 from pathlib import Path
 def find_files_by_prefix(prefixes:List[str], input_dir:str, endswith: str=None) -> List[str]:
@@ -327,7 +305,7 @@ def find_files_by_identifier(root_path: str, select_ids: List[str], by: str = 'g
 
 
 
-def transform_data(data_dict, type_):
+def transform_data(data_dict:Dict, type_:str = 'log_mean'):
     import numpy as np
     
     """
@@ -398,3 +376,21 @@ def read_fasta(file_path):
             fasta_dict[protein_id] = ''.join(sequence_lines)
     
     return fasta_dict
+
+
+#Functions for preprocessing:
+
+def write_h5_embed_from_df(embed_df, out_path):
+    import h5py
+    import numpy as np
+    ids = embed_df.iloc[:, 0].astype(str).to_numpy()
+    embeddings = embed_df.iloc[:, 1:].to_numpy(dtype=np.float32)
+    
+    with h5py.File(out_path, "w") as f:
+        # variable-length UTF-8 strings
+        str_dtype = h5py.string_dtype(encoding="utf-8")
+
+        f.create_dataset("ids", data=ids, dtype=str_dtype)
+        f.create_dataset("embeddings", data=embeddings)
+    
+    return out_path

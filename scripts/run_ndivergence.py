@@ -10,6 +10,7 @@ import json
 from idr_diverge.distances.compute_ndist import ComputeNDistanceDict, _load_embeddings, _load_ortholog_embeddings, _parse_ids,save_pickle, collect_values_by_key, load_fam_map, calc_FND
 from idr_diverge.utils.helpers import read_pickle
 
+
 @dataclass(frozen=True)
 class InputsConfig:
     dist_matrix: Optional[Path]
@@ -22,7 +23,7 @@ class InputsConfig:
 class OutputsConfig:
     out_distance: Path #directory path
     out_random: Path #file path
-    overwrite: bool = False
+    #overwrite: bool = False
 
 @dataclass(frozen=True)
 class ComputeConfig:
@@ -39,11 +40,12 @@ class NeighbourDivergenceConfig:
 
 @dataclass(frozen=True)
 class RandomNeighbourDivergenceConfig:
+    random_seed: Optional[int]# = 42
     enabled: bool = False
     dist_type: Literal["between", "within"] = 'within'
     segment: str = "IDR"
     sample_size: int = 100
-    random_seed: int = 42
+    
     return_mode: Literal["aggregate", "per_gene"] = "aggregate"
 
 @dataclass(frozen=True)
@@ -101,7 +103,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
     outputs = OutputsConfig(
         out_distance=Path(cfg["outputs"]["out_distance"]),
         out_random = Path(cfg["random_neighbour_divergence"]["out_random"]),
-        overwrite=bool(cfg["outputs"].get("overwrite", False)),
+        #overwrite=bool(cfg["outputs"].get("overwrite", False)),
     )
 
     compute = ComputeConfig(
@@ -124,7 +126,9 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         #dist_type=cfg["random_neighbour_divergence"]["dist_type"],
         #segment=cfg["random_neighbour_divergence"].get("segment", "IDR"),
         sample_size=int(cfg["random_neighbour_divergence"].get("sample_size", 100)),
-        random_seed=int(cfg["random_neighbour_divergence"].get("random_seed", 42)),
+        random_seed=(int(cfg["random_neighbour_divergence"]["random_seed"])
+    if cfg["random_neighbour_divergence"].get("random_seed") is not None
+    else None),
         return_mode=cfg["neighbour_divergence"].get("return_mode", "aggregate")
         #return_mode=cfg["random_neighbour_divergence"].get("return_mode", "aggregate"),
     )
@@ -500,7 +504,10 @@ def run_random_divergence_pipeline(cfg:PipelineConfig
     #rand_genes = (pd.Series(genes).sample(n=sample_size, random_state=random_seed).tolist())
     #rand_gpos = (bg_ids.loc[bg_ids["__genes"].isin(rand_genes), "__gpos"].dropna().unique().tolist())
     
-    rand_gpos = (pd.Series(gpos).sample(n=sample_size, random_state=random_seed).tolist())
+    if random_seed:
+        rand_gpos = (pd.Series(gpos).sample(n=sample_size, random_state=random_seed).tolist())
+    else:
+        rand_gpos = (pd.Series(gpos).sample(n=sample_size).tolist())
     rand_genes = (bg_ids.loc[bg_ids["__gpos"].isin(rand_gpos), "__genes"].dropna().unique().tolist())
     #print('rand_genes', len(rand_genes))
     #load random embeddings
@@ -568,8 +575,7 @@ def _wait_for_file(path: Path, timeout_s: int = 86400, poll_s: int = 10) -> None
 
 
 
-from pathlib import Path
-import pandas as pd
+
 
 def run_FND_pipeline(cfg: "PipelineConfig") -> pd.DataFrame:
     """
@@ -606,7 +612,7 @@ def run_FND_pipeline(cfg: "PipelineConfig") -> pd.DataFrame:
     # Resolve family distance path (dir or file)
     fam_dist_path = cfg.FND.fam_distance_matrix
     if fam_dist_path is None:
-        print(f"Distance path for family divergence not provided, generating distances from {cfg.inputs.background_emb} and {cfg.inputs.ortholog_emb} using {cfg.inputs.fam_map}")
+        print(f"Distance path for family divergence not provided, generating distances from {cfg.inputs.background_emb}") #and {cfg.inputs.ortholog_emb} using {cfg.inputs.fam_map}")
         run_divergence_pipeline(cfg)
         fam_dist_path = Path(cfg.outputs.out_distance)   # directory expected to contain _SUCCESS.json
     else:
@@ -633,12 +639,13 @@ def run_FND_pipeline(cfg: "PipelineConfig") -> pd.DataFrame:
         bg_dist_path = Path(bg_dist_path)
 
     # Wait for prerequisites
-    if fam_dist_path.is_dir():
-        _wait_for_success_flag(fam_dist_path)   # waits for fam_dist_path/_SUCCESS.json 
-    else:
-        _wait_for_file(fam_dist_path)
+    #if fam_dist_path.is_dir():
+        #print('waiting')
+    #    _wait_for_success_flag(fam_dist_path)   # waits for fam_dist_path/_SUCCESS.json 
+    #else:
+    #    _wait_for_file(fam_dist_path)
 
-    _wait_for_file(bg_dist_path)
+    #_wait_for_file(bg_dist_path)
 
     # Compute FND
     return calc_FND(

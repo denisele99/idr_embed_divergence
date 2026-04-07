@@ -6,7 +6,7 @@ import plotly.express as px
 import umap
 from umap.umap_ import UMAP
 
-def umap_reduce_2(embeddings,components=2, **kwargs): #embeddings is a list of embeddings? no labels
+def umap_reduce(embeddings,components=2, **kwargs): #embeddings is a list of embeddings? no labels
     """Wrapper around :meth:`umap.UMAP` with defaults for bio_embeddings"""
     umap_params = dict()
 

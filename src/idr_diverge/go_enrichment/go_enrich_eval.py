@@ -19,10 +19,8 @@ from pygosemsim import similarity
 from functools import lru_cache
 
 
-sys.path.append('/home/moseslab/denise/Paper/src')
-
-from go_enrichment.go_enrichment_ import load_go_sim_graph, GO_ANNOTATIONS, config_data
-from utils.helpers import load_config
+from idr_diverge.go_enrichment.go_enrichment_ import load_go_sim_graph, GO_ANNOTATIONS, config_data
+from idr_diverge.utils.helpers import load_config
 
 
 def jaccard_similarity(a,b): #jaccard similarity
@@ -40,7 +38,7 @@ def jaccard_similarity(a,b): #jaccard similarity
  
     return intersection / union
 
-def fold_enrichment(observed_ratio, background_n = 19459, NN=config_data.get("k")):
+def fold_enrichment(observed_ratio, background_n = 19459, NN=50):
     observed_ratio = tuple(observed_ratio.split('/'))
     n_term_observed,n_term_background = observed_ratio
 
@@ -52,10 +50,10 @@ def fold_enrichment(observed_ratio, background_n = 19459, NN=config_data.get("k"
 
 def wang_similarity(term1, term2,G_graph):
     return similarity.wang(G_graph, term1, term2)
-    
+
+G = load_go_sim_graph()
+
 def go_bma_similarity(go_terms1, go_terms2):
-    
-    G = load_go_sim_graph()
     
     if (len(go_terms1)<1) or (len(go_terms2)<1):
         return np.nan

@@ -61,6 +61,12 @@ Blast default results as input
 ## Calculating Neighbour distance, Calculating FND
 Required format for fasta
 
+python run_ndivergence.py ../configs/ndist_config.yml
+
+- To calculate FND - set to True
+- see parameters and explanation in config file
+
+
 ## Visualization of divergence relative to other protein families?
 
 ## Figures

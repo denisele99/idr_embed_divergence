@@ -220,8 +220,6 @@ def _load_distance_dict(dist_path: str) -> Dict[str, Dict[str, List[float]]]:
       depth=2 => collect_values_by_key(values) - get list of distances aggregated by species
       depth=3 => {id: collect_values_by_key(inner.values())}
     """
-    from utils.helpers import read_pickle
-    import os
 
     if not os.path.isfile(dist_path):
         raise FileNotFoundError(f"Distance pickle not found: {dist_path}")
@@ -230,6 +228,9 @@ def _load_distance_dict(dist_path: str) -> Dict[str, Dict[str, List[float]]]:
         raise TypeError(f"Expected a dict from {dist_path}, got {type(dist_dict).__name__}")
 
     depth = dict_max_depth(dist_dict)
+    
+    if depth == 1:
+        return dist_dict
 
     if depth == 2:
         return collect_values_by_key(list(dist_dict.values()))
@@ -496,11 +497,13 @@ def filter_ortholog_region_ids(
         allowed = set(prot_map.get(relationship, []))
 
     if not allowed:
+        #print('relationship filtered')
         return []
 
     # Keep allowed proteins, plus always keep keep_species (e.g., HUMAN)
     df = df[df["__ensembl_id"].isin(allowed) | (df["__species"] == keep_species)].copy()
     if df.empty:
+        #print('keep species filtered')
         return []
 
     # ---- 3) Deduplicate within (__species, __gpos) using percent identity ----
@@ -531,13 +534,18 @@ def filter_ortholog_region_ids(
     if min_species_coverage is not None:
         min_required = math.ceil(n_unique_gpos * float(min_species_coverage))
         spp_counts = df.groupby("__species")["__gpos"].nunique() #count unique gpos per species
+        #print('spp_counts',spp_counts)
         keep_spp = set(spp_counts[spp_counts >= min_required].index) 
+        #print('min_required', min_required)
+        #print('keep_spp', keep_spp)
         df = df[df["__species"].isin(keep_spp)].copy()
         if df.empty:
+            #print('min species coverage filtered')
             return []
 
     # ---- 5) Require a minimum number of species ----
     if df["__species"].nunique() < int(min_species):
+        #print('not enough species')
         return []
 
     return df['__id'].tolist()
@@ -561,7 +569,7 @@ class DistanceState:
 
 @dataclass
 class ComputeNDistanceDict(): #return distance dictionary
-    def __init__(self,embed_df,background_ids = None, gpos_tokens =-4):
+    def __init__(self,embed_df,background_ids = None, gpos_tokens =-4, ortholog_filter_params = None):
         embed_df=embed_df.copy()
         self.id_col = embed_df.columns[0]
         self.gpos_tokens = gpos_tokens #what position in the id do you find the gene_position
@@ -576,10 +584,11 @@ class ComputeNDistanceDict(): #return distance dictionary
             self.background_ids = set(self.ids)   # default = full HUMAN background
         else:
             self.background_ids = set(background_ids)
-            
-        self.ortholog_filter_params = {'relationship':"ortholog_one2one_one2many", 
-            'min_species_coverage':0.3,
-            'min_species':5}
+        
+        if ortholog_filter_params is None: #TODO Do I want to keep this
+            self.ortholog_filter_params = {'relationship':"ortholog_one2one_one2many", 
+                'min_species_coverage':0.3,
+                'min_species':5}
     
     # def _prepare_extended_dm_state(self, ortholog_df) -> DistanceState:
     #     '''
@@ -680,10 +689,11 @@ class ComputeNDistanceDict(): #return distance dictionary
             ortholog_df = ortholog_df[ortholog_df[id_col].isin(filtered_ids)]
             
             if ortholog_df.empty:
-                print(f'No orthologs passed filtering criteria:{params}. Gene pos list:{gene_pos_list}')
+                params_str = {k: v for k, v in params.items() if k != 'homology_ref'}
+                print(f'No orthologs passed filtering criteria:{params_str}. Gene pos list:{gene_pos_list}')
                 return {}       
                                   
-        all_ids_combined = list(set(ortholog_df[id_col])|set(self.background_ids))
+        all_ids_combined = list(set(ortholog_df[id_col])|set(self.background_ids)) #TODO change to set(ortholog_df[id_col]) ?
         df = _parse_ids(all_ids_combined)
         
         # Build group map (species, gpos) -> list of IDs
@@ -693,12 +703,13 @@ class ComputeNDistanceDict(): #return distance dictionary
         H = {gp: grp.get(('HUMAN', gp), []) for gp in gene_pos_set}
         S = {gp: [s for sp in all_species for s in grp.get((sp, gp), [])] for gp in gene_pos_set}
         id_to_species = dict(zip(df["__id"], df["__species"]))
+        #print(id_to_species)
         
         distances = defaultdict(dict)
         
         #Precompute distances + sort with added ortholog_df                        
         state = self._prepare_extended_dm_state(ortholog_df)
-        orth_ids = ortholog_df[self.id_col].astype(str).str.strip()
+        #orth_ids = ortholog_df[self.id_col].astype(str).str.strip()
         
         combos = list(combinations(gene_pos_set, 2))
         if chunk_size:
@@ -712,10 +723,14 @@ class ComputeNDistanceDict(): #return distance dictionary
             print(f'chunk {i+1}/{len_combos}')
             for (gp1, gp2) in chunk: 
                 name = f"{gp1}|{gp2}" #TODO should I change to a tuple?
-                print(name)
+                #print(name)
                 H1, H2 = H[gp1], H[gp2]
                 S1, S2 = S[gp1], S[gp2]
-                if not (H1 and H2 and S1 and S2): 
+                
+                if not H1 or not H2:
+                    H1 = gp1
+                    H2 = gp2
+                if not (S1 and S2):#(H1 and H2 and S1 and S2): 
                     continue
                 
                 # ranks for all pairs         
@@ -791,7 +806,7 @@ class ComputeNDistanceDict(): #return distance dictionary
                     collect_values_by_key, and self._prepare_extended_dm_state().
         """
             id_col=self.id_col
-            gene_pos_list = list(set(gene_pos_list))
+            gene_pos_set = list(set(gene_pos_list))
 
             # Ensure the ID column is string-typed and keep the same order as ids_for_matrix
             ortholog_df[id_col] = ortholog_df[id_col].astype(str)
@@ -800,12 +815,14 @@ class ComputeNDistanceDict(): #return distance dictionary
                 params = filter_params if filter_params is not None else self.ortholog_filter_params
 
                 candidate_ids = ortholog_df[id_col].dropna().unique().tolist()
+                #print(candidate_ids[:10])
                 filtered_ids = filter_ortholog_region_ids(ortholog_ids = candidate_ids,  **params)
-
+                #print(filtered_ids[:10])
                 ortholog_df = ortholog_df[ortholog_df[id_col].isin(filtered_ids)]
                 
                 if ortholog_df.empty:
-                    print(f'No orthologs passed filtering criteria:{params}. Gene pos list:{gene_pos_list}')
+                    param_dict = {k: v for k, v in params.items() if k != 'homology_ref'}
+                    print(f'No orthologs passed filtering criteria:{param_dict}. Gene pos list:{gene_pos_set}')
                     return {} 
             
             df = _parse_ids(ortholog_df[id_col])
@@ -813,16 +830,20 @@ class ComputeNDistanceDict(): #return distance dictionary
             # Build group map (species, gpos) -> list of IDs
             grp = df.groupby(['__species', '__gpos'])['__id'].apply(list).to_dict()
             all_species = sorted({sp for sp, _ in grp.keys() if sp != 'HUMAN'})
-            gene_pos_set = set(gene_pos_list)
+            #gene_pos_set = set(gene_pos_list)
             H = {gp: grp.get(('HUMAN', gp), []) for gp in gene_pos_set}
+            #print('H:',H)
             S = {gp: [s for sp in all_species for s in grp.get((sp, gp), [])] for gp in gene_pos_set}
             id_to_species = dict(zip(df["__id"], df["__species"]))
             
             species_dist_list= []
             species_dist_by_gpos = defaultdict(dict)
             
-            gene_pos_set = set(df['__gpos'].unique()) & gene_pos_set
-            print('gene pos list:',gene_pos_set)
+            #gene_pos_set = set(df['__gpos'].unique()) & set(gene_pos_set)
+            gene_pos_set = set(gene_pos_set)
+            
+            #print('gene pos list:',gene_pos_set)
+            #print('ortholog df gpos:', set(df['__gpos'].unique()))
             
             if not gene_pos_set:
                 return ValueError(f"Ortholog_df ids do not overlap with gene_pos_set: {gene_pos_set}")
@@ -831,17 +852,16 @@ class ComputeNDistanceDict(): #return distance dictionary
                 chunks = chunk_list(list(gene_pos_set), chunk_size)
                 len_combos = len(chunks)
             else: 
-                chunks = list(gene_pos_set)
+                chunks = list(list(gene_pos_set))
                 len_combos = 1
             
             for i, gp_chunk in enumerate(chunks):
                 state=None 
                 print(f'chunk {i+1}/{len_combos}')
-                print(gp_chunk)
+                #print(gp_chunk)
                 chunk_ids = df.loc[df["__gpos"].isin(gp_chunk), "__id"].unique()
-                print(chunk_ids)
+                #print('Chunk ids:', gp_chunk, chunk_ids[:10])
                 ortholog_chunk_df = ortholog_df[ortholog_df[id_col].isin(chunk_ids)]
-                #print(ortholog_chunk_df)
                 
                 if ortholog_chunk_df.empty:
                     print('empty')
@@ -856,7 +876,11 @@ class ComputeNDistanceDict(): #return distance dictionary
                     H1 = H[gp] #human id for this gene pos
                     S1 = S[gp] #species orthologs for this gene pos
                     
-                    if not (H1 and S1): #both have at least 1 item
+                    if not H1:
+                        H1 = gp
+                        #print(f'skipping {gp} because no human orthologs')
+                    elif not S1:
+                        print(f'skipping {gp} because no species orthologs')
                         continue
             
                     # ranks for all pairs
@@ -1375,7 +1399,7 @@ def differences(fam_dist: Dict[str, np.ndarray], #TODO is is np array or float?
 
     return diff
 
-def _load_fam_distance_dict(path: str | Path, endswith = "diverge.pkl") -> dict:
+def _load_fam_distance_dict(path: str | Path, endswith = ".pkl") -> dict:
 
     path = Path(path)
 
@@ -1391,7 +1415,7 @@ def _load_fam_distance_dict(path: str | Path, endswith = "diverge.pkl") -> dict:
         }
 
     else:
-        return _load_distance_dict(path)
+        return {path.name.split("_", 1)[0]:_load_distance_dict(path)}
 
 def calc_FND(fam_dist_dict_path,
             unrelated_dist_dict_path,
@@ -1412,13 +1436,13 @@ def calc_FND(fam_dist_dict_path,
     unrelated_dist_dict = _load_distance_dict(unrelated_dist_dict_path)
     unrelated_dist_dict= transform_data(unrelated_dist_dict,type_=data_transform)
 
-    fam_dist_dict = _load_fam_distance_dict(fam_dist_dict_path, endswith="diverge.pkl")
+    fam_dist_dict = _load_fam_distance_dict(fam_dist_dict_path, endswith=".pkl")
     
     rows = []
     for fam_id, fam_dists in fam_dist_dict.items():
         if fam_dists is None:
             continue
-
+        #print(fam_id)
         fam_summ_data = transform_data(fam_dists, type_=data_transform)
         diff = differences(fam_summ_data, unrelated_dist_dict)
     

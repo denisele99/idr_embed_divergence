@@ -1,21 +1,19 @@
 inputs:
-  dist_matrix: null
-  background_emb: /home/moseslab/denise/Paper/data/embed/human_PFAM_esm_updated.csv #/home/moseslab/denise/Paper/data/embed/human_idrs_esm1b.csv #/data/embeddings/human_idr_background.csv
-  ortholog_emb: /home/moseslab/denise/Paper/data/embed/unrelated_pfam_sample_10_23_25_esm.h5 #/home/moseslab/denise/Paper/data/embed/CDK_PFAM_ortho_07_31_25_esm.csv #/home/moseslab/denise/embeddings/esm1b/idr_orthologs #/data/embeddings/orthologs/ #file of ortholog embeddings or directory of ortholog embeddings
-  homolog_annotation: /home/moseslab/denise/Paper/data/annotations/ensembl_homol_reference_10-10.pkl #/data/annotations/ensembl_homology.pkl
-  fam_map: /home/moseslab/denise/Paper/src/idr_diverge/distances/input_args/rand_genes_pfam.json #/home/moseslab/denise/Paper/src/distances/current/cdk_to_genes.json #/home/moseslab/denise/Paper/src/distances/current/family_to_genes.json #Optional but required if random_neighbour_divergence is false
+  background_emb: /home/moseslab/denise/Paper/data/embed/human_PFAM_esm_updated.csv #/home/moseslab/denise/Paper/data/embed/human_idrs_esm1b.csv    # #/data/embeddings/human_idr_background.csv
+  ortholog_emb: /home/moseslab/denise/Paper/data/embed/unrelated_pfam_sample_combined_esm.h5 #/home/moseslab/denise/embeddings/esm1b/idr_orthologs_fixed_names #/home/moseslab/denise/Paper/data/embed/unrelated_pfam_sample_07-31-25_esm.h5 #/home/moseslab/denise/Paper/data/embed/unrelated_pfam_sample_10_23_25_esm.h5 #/home/moseslab/denise/Paper/data/embed/CDK_PFAM_ortho_07_31_25_esm.csv # #/data/embeddings/orthologs/ #file of ortholog embeddings or directory of ortholog embeddings
+  fam_map: /home/moseslab/denise/Paper/src/idr_diverge/distances/input_args/rand_genes_pfam_100.json #/home/moseslab/denise/Paper/src/idr_diverge/distances/input_args/family_to_genes.json #/home/moseslab/denise/Paper/src/idr_diverge/distances/input_args/rand_genes_pfam.json #/home/moseslab/denise/Paper/src/distances/current/cdk_to_genes.json #/home/moseslab/denise/Paper/src/distances/current/family_to_genes.json #Optional but required if random_neighbour_divergence is false
   #Optional inputs:
   #genes: null #list of specific genes to compute divergence for, if null compute for all genes in fam_map FORMAT: gene1,gene2,gene3
   #fam_id: null #specific family to compute divergence for, if null compute for all families in fam_map
 
 outputs:
-  out_distance: /home/moseslab/denise/Paper/res/ndist/fam_ndist #/home/moseslab/denise/Paper/res/ndist/rand_ndist/ #/results/fam_divergence/ #directory or specific file to save distance_dict results to
-  out_random: /home/moseslab/denise/Paper/res/ndist/rand_ndist/rand_10_pfam_03_24 #/results/random_divergence/random_bg_distance_matrix.pkl #file to save random background distance matrix to. should be different from fam_distance_matrix output path to avoid confusion
+  out_distance: /home/moseslab/denise/Paper/res/ndist/rand_ndist #/home/moseslab/denise/Paper/res/ndist/rand_ndist/ #/results/fam_divergence/ #directory or specific file to save distance_dict results to
+  out_random: /home/moseslab/denise/Paper/res/ndist/rand_ndist/rand_100_idr_03_31_nofilt #/results/random_divergence/random_bg_distance_matrix.pkl #file to save random background distance matrix to. should be different from fam_distance_matrix output path to avoid confusion
   overwrite: false
 
 compute:
   metric: cosine
-  chunk_size: 1000 #5000
+  chunk_size: 15 #1000 #5000
   n_jobs: 1 #split fams into different jobs (or diff segments for within)
 
 
@@ -24,31 +22,33 @@ compute:
 neighbour_divergence:
   dist_type: within      # between | within 
   segment: PFAM #IDR            #just for naming purposes, not used in code
-  return_mode: aggregate  # aggregate | per_gene Only affects within divergence calculation?
+  return_mode: per_gene # aggregate | per_gene Only affects within divergence calculation?
   #out_distance: /results/ortholog_divergence/
   #Put chunk_size and n_jobs here?
 
 random_neighbour_divergence:
   enabled: false
-  dist_type: within
-  segment: PFAM  #just for naming purposes, not used in code
-  sample_size: 2 #100 #default 100 segments
+  #dist_type: within #TODO merge this with the above parameters?
+  #segment: IDR  #just for naming purposes, not used in code
+  sample_size: 100 #100 #default 100 segments
   random_seed: 42
-  return_mode: aggregate
+  #return_mode: per_gene # aggregate | per_gene Only affects within divergence calculation. Between divergence will always return per_gene
   #out_random: /results/ortholog_divergence/random_bg_distance_matrix.pkl #file to save random background distance matrix to. should be different from fam_distance_matrix output path to avoid confusion
   
 
 ortholog_filter:
-  enabled: true
+  enabled: false
   ortholog_types: ortholog_one2one_one2many #- ortholog_one2one | ortholog_one2many | ortholog_one2one_one2many
   min_species_coverage: 0.5
   min_species: 10
+  homolog_annotation: /home/moseslab/denise/Paper/data/annotations/ensembl_homol_reference_10-10.pkl
 
 run:
-  verbose: true #TODO this is not implemented
+  verbose: true #TODO this is not implemented, use logging library instead of print statements and set level to INFO or DEBUG based on this setting
 
 calculate_FND:
   enabled: false
-  bg_distance_matrix: null #optional, if not provided will compute within ortholog distances from random background embeddings **FILE PATH
-  fam_distance_matrix: null #optional, if not provided will compute distances from ortholog embeddings referenced in fam_map **DIRECTORY PATH
-  output_results: /results/ortholog_divergence/FND_results.csv
+  bg_distance_matrix: /home/moseslab/denise/Paper/res/ndist/rand_ndist/rand_100_idr_03_30_fixed.pkl #/home/moseslab/denise/Paper/res/ndist/rand_ndist/rand_100_idr2.pkl #null #optional, if not provided will compute within ortholog distances from random background embeddings **FILE PATH
+  #Path to ndist file or to directory. Default - select files that end with diverge.pkl
+  fam_distance_matrix: /home/moseslab/denise/Paper/res/ndist/fam_ndist #/home/moseslab/denise/Paper/res/ndist/fam_ndist/12_between_IDR_diverge.pkl #null #optional, if not provided will compute distances from ortholog embeddings referenced in fam_map **DIRECTORY PATH
+  output_results: /home/moseslab/denise/Paper/res/FND/FND_results.csv

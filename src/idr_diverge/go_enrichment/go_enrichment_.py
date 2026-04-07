@@ -14,25 +14,16 @@ from statsmodels.stats.multitest import multipletests
 from statsmodels.stats.proportion import proportions_ztest
 
 #sys.path.append('/home/moseslab/denise/IDR_LM/src/analysis')
-from distances.embed_distance import EmbedDistanceMatrix
+from idr_diverge.distances.embed_distance import EmbedDistanceMatrix
 
-from utils.helpers import load_config
+from idr_diverge.utils.helpers import load_config
 
 
-import numpy as np
-import pandas as pd
-import os
-import csv
 # from itertools import combinations
-sys.path.append('/home/moseslab/denise/Paper/src')
+#sys.path.append('/home/moseslab/denise/Paper/src')
 from scipy.stats import fisher_exact
 from statsmodels.stats.multitest import multipletests
 from statsmodels.stats.proportion import proportions_ztest
-from utils.helpers import load_config
-import numpy as np
-import sys
-import pandas as pd
-import csv
 from collections import defaultdict, Counter
 import os
 import obonet
@@ -42,20 +33,18 @@ from scipy import stats
 from goatools.obo_parser import GODag
 from goatools.base import get_godag
 
-from pygosemsim import download, graph
-from pygosemsim import similarity
+from pygosemsim import download, graph,similarity
 
 from functools import lru_cache
-from utils.helpers import load_config
+from idr_diverge.utils.helpers import load_config
 
 from collections import Counter
 from typing import Dict, Iterable, List, Mapping, Sequence, Tuple, Optional
 
-import numpy as np
 from scipy.stats import fisher_exact
 from statsmodels.stats.multitest import multipletests
 
-from distances.current.core import  _load_embeddings
+from idr_diverge.distances.compute_ndist import  _load_embeddings
 
 from goatools.obo_parser import GODag
 from goatools.go_enrichment import GOEnrichmentStudy

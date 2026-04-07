@@ -486,4 +486,4 @@ def go_jaccard_similarity(go_terms1, go_terms2):
     return intersection / union
 
 def go_jaccard_divergence(go_terms1, go_terms2):
-    return go_jaccard_similarity(go_terms1, go_terms2) - 1
+    return 1 - go_jaccard_similarity(go_terms1, go_terms2)

@@ -4,11 +4,9 @@
 #"bma_sim_to_known"
 import pandas as pd
 
-import sys
-sys.path.append('/home/moseslab/denise/Paper')
-from src.go_enrichment.go_enrich_eval import go_jaccard_similarity, go_bma_similarity
-from src.go_enrichment.go_enrichment_ import GO_ANNOTATIONS, _extract_gene_id
-from src.go_enrichment.go_enrichment_ import load_config,load_go_annotations,  go_ID_to_function
+from idr_diverge.go_enrichment.go_enrich_eval import go_jaccard_similarity, go_bma_similarity
+from idr_diverge.go_enrichment.go_enrichment_ import GO_ANNOTATIONS, _extract_gene_id
+from idr_diverge.go_enrichment.go_enrichment_ import load_config,load_go_annotations,  go_ID_to_function
 import argparse
 import ast
 
