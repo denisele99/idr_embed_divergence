@@ -6,6 +6,7 @@ import random
 import numpy as np
 import time
 from datasets import Dataset, DatasetDict, load_dataset
+from typing import Dict, List
 
 from transformers import (
     BertConfig,
@@ -13,52 +14,44 @@ from transformers import (
     BertTokenizer,
     DataCollatorForLanguageModeling,
     Trainer,
-    TrainerCallback,
+    #TrainerCallback,
     TrainingArguments,
 )
 
-from idr_diverge.utils.helpers import read_fasta
-
-# ---------------------------
-# Configuration
-# ---------------------------
-
-WANDB_PROJECT = "idr_lm_test1"
-WANDB_RUN_NAME = "test1"
+#from idr_diverge.utils.helpers import read_fasta
+from idr_diverge.IDR_LM_train.config import load_config
 
 
-
-# FASTA file containing the protein sequences used for pretraining
-TRAIN_DATA_PATH = Path("/home/moseslab/denise/IDR_LM/data/sequences/mobidb_idrs_27/mobi_idrs_30M.fasta")
-# BERT architecture configuration (hidden size, layers, attention heads, etc.)
-MODEL_CONFIG_PATH = Path("./bert_config.json") 
-
-# Optional: load weights from a previous training run instead of starting from scratch.
-# Set to None to initialize a new model from MODEL_CONFIG_PATH.
-RESUME_CHECKPOINT_PATH = None #Path("/home/moseslab/denise/IDR_LM/results/model_checkpoints/30M_64b_5ep_-checkpoints-08-28/checkpoint-228180")
-
-# Directory where training checkpoints and intermediate model saves will be written
-CHECKPOINT_OUTPUT_DIR = Path("/home/moseslab/denise/Paper/res/model_checkpoints")
-
-#OUTPUT_DIR = Path("/home/moseslab/denise/IDR_LM/results")
-FINAL_MODEL_DIR = Path("/home/moseslab/denise/Paper/res/model_checkpoints/best")
-
-#Training arguments
-MAX_LENGTH = 512
-BATCH_SIZE = 64
-TEST_SIZE = 0.15
-SHUFFLE_SEED = 42
-MLM_PROBABILITY = 0.05
-NUM_TRAIN_EPOCHS = 2 #35
-LEARNING_RATE = 1e-4
-NO_CUDA = False
-WARMUP_PROPORTION = 0.1
-
+CONFIG_PATH = '/home/moseslab/denise/Paper/src/idr_diverge/IDR_LM_train/pretrain_args.yaml'
+args = load_config(CONFIG_PATH)
 
 
 # ---------------------------
 # Helpers
 # ---------------------------
+
+def read_fasta(file_path) -> List[Dict]:
+    sequences = []
+    sequence_id = None
+    sequence_data = []
+
+    with open(file_path, 'r') as file:
+        for line in file:
+            line = line.strip()
+            if line.startswith('>'):
+                if sequence_id is not None:
+                    sequences.append({"id": sequence_id, "sequences": ''.join(sequence_data)})
+                sequence_id = line[1:]  # Remove the '>' character
+                sequence_data = []
+            else:
+                sequence_data.append(line)
+
+        # Add the last sequence
+        if sequence_id is not None:
+            sequences.append({"id": sequence_id, "sequences": ''.join(sequence_data)})
+
+    return sequences
+
 
 def combine_sequences(sequences, tokenizer, max_length=512):
     """
@@ -138,26 +131,26 @@ def load_fasta_as_dataset(file_path):
     sequences = read_fasta(file_path)
     return Dataset.from_list(sequences)
 
-class SaveCheckpointCallback(TrainerCallback):
-    def on_epoch_end(self, args, state, control, **kwargs):
-        epoch = int(state.epoch)
-        output_dir = CHECKPOINT_OUTPUT_DIR  / f"checkpoint-epoch-{epoch}"
-        kwargs["model"].save_pretrained(output_dir)
-        print(f"Saved model checkpoint to {output_dir}")
+# class SaveCheckpointCallback(TrainerCallback):
+#     def on_epoch_end(self, args, state, control, **kwargs):
+#         epoch = int(state.epoch)
+#         output_dir = CHECKPOINT_OUTPUT_DIR  / f"checkpoint-epoch-{epoch}"
+#         kwargs["model"].save_pretrained(output_dir)
+#         print(f"Saved model checkpoint to {output_dir}")
 
 
 
 def initialize_wandb():
     os.environ["WANDB_LOG_MODEL"] = "checkpoint"
-    wandb.init(project=WANDB_PROJECT, name=WANDB_RUN_NAME)
+    wandb.init(project=args.wandb_project, name=args.wandb_run_name)
 
 def load_and_tokenize_dataset(data_file: Path, tokenizer: BertTokenizer) -> DatasetDict:
     dataset = load_fasta_as_dataset(str(data_file))
-    dataset = dataset.shuffle(seed=SHUFFLE_SEED).select(range(1000))
-    dataset = dataset.train_test_split(test_size=TEST_SIZE)
+    dataset = dataset.shuffle(seed=args.seed).select(range(10)) #TODO comment this out later
+    dataset = dataset.train_test_split(test_size=args.test_size)
 
     print("Tokenizing dataset...") 
-    tokenized_dataset = tokenize_dataset(dataset, tokenizer, max_length=MAX_LENGTH)
+    tokenized_dataset = tokenize_dataset(dataset, tokenizer, max_length=args.max_seq_length)
     
     return tokenized_dataset
 
@@ -175,20 +168,20 @@ def load_model(config_file: Path, checkpoint_path: Path | None = None) -> BertFo
 
 def build_training_args(logging_steps: int) -> TrainingArguments:
     return TrainingArguments(
-        output_dir=str(CHECKPOINT_OUTPUT_DIR),
+        output_dir=str(args.checkpoint_output_dir),
         overwrite_output_dir=True,
         do_train=True,
         evaluation_strategy="epoch",
         save_strategy="epoch",
-        num_train_epochs=NUM_TRAIN_EPOCHS,
-        learning_rate=LEARNING_RATE,
-        no_cuda=NO_CUDA,
-        per_device_train_batch_size=BATCH_SIZE,
-        per_device_eval_batch_size=BATCH_SIZE,
+        num_train_epochs=args.num_train_epochs,
+        learning_rate=args.learning_rate,
+        no_cuda=args.no_cuda,
+        per_device_train_batch_size=args.batch_size,
+        per_device_eval_batch_size=args.batch_size,
         save_total_limit=10,
-        logging_dir=CHECKPOINT_OUTPUT_DIR / "logs",
+        logging_dir= args.checkpoint_output_dir / "logs",
         logging_steps=logging_steps,
-        warmup_ratio=WARMUP_PROPORTION,
+        warmup_ratio=args.warmup_proportion,
         
         load_best_model_at_end=True, #TODO hide?
         report_to="wandb", #TODO - log to wandb as an option?
@@ -196,9 +189,9 @@ def build_training_args(logging_steps: int) -> TrainingArguments:
 
 
 def validate_tokenized_dataset(tokenized_dataset):
-    assert len(tokenized_dataset["train"][0]["input_ids"]) == MAX_LENGTH
+    assert len(tokenized_dataset["train"][0]["input_ids"]) == args.max_seq_length
     assert all(
-        len(input_ids) <= MAX_LENGTH for input_ids in tokenized_dataset["train"]["input_ids"]
+        len(input_ids) <= args.max_seq_length for input_ids in tokenized_dataset["train"]["input_ids"]
     ), "Input sequence exceeds max length"
 
 
@@ -209,7 +202,7 @@ def main():
     initialize_wandb()
     #tokenizer = BertTokenizer(vocab_file=args.vocab_file)
     tokenizer = BertTokenizer.from_pretrained("Rostlab/prot_bert") #This tokenizer has an extra letter (O)
-    tokenized_dataset = load_and_tokenize_dataset(TRAIN_DATA_PATH , tokenizer)
+    tokenized_dataset = load_and_tokenize_dataset(args.train_data_path , tokenizer)
 
     train_dataset = tokenized_dataset["train"]
     eval_dataset = tokenized_dataset["test"]
@@ -221,12 +214,12 @@ def main():
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
         mlm=True,
-        mlm_probability=MLM_PROBABILITY,
+        mlm_probability=args.masked_lm_prob,
     )
 
-    model = load_model(MODEL_CONFIG_PATH, RESUME_CHECKPOINT_PATH)
+    model = load_model(args.model_config_path, args.resume_checkpoint_path)
 
-    logging_steps = max(1, len(train_dataset) // BATCH_SIZE)
+    logging_steps = max(1, len(train_dataset) // args.batch_size)
     training_args = build_training_args(logging_steps=logging_steps)
 
     trainer = Trainer(
@@ -235,7 +228,7 @@ def main():
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        callbacks=[SaveCheckpointCallback()] #TODO remove this? was originally hidden
+        #callbacks=[SaveCheckpointCallback()] #TODO remove this? was originally hidden
     )
 
     trainer.train()
@@ -244,7 +237,7 @@ def main():
     print("Evaluation results:")
     print(eval_results)
 
-    trainer.save_model(str(FINAL_MODEL_DIR))
+    trainer.save_model(str(args.final_model_dir))
 
     end = time.time()
     print(f"Total runtime: {end - start:.2f} seconds")

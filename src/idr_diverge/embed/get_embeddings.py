@@ -1,6 +1,7 @@
 from pathlib import Path
 import argparse
 import subprocess
+import yaml
 
 
 DEFAULT_DATA_DIR = Path("/home/moseslab/denise/embeddings/data_to_embed/")
@@ -11,38 +12,82 @@ IDR_LM_SCRIPT = Path("/home/moseslab/denise/Paper/src/idr_diverge/embed/idrlm_em
 
 
 def parse_args():
+    # First parser only reads --config
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument(
+        "--config",
+        type=Path,
+        help="Path to YAML config file."
+    )
+
+    config_args, remaining_argv = config_parser.parse_known_args()
+
+    # Load config values if provided
+    config = {}
+    if config_args.config:
+        with open(config_args.config) as f:
+            config = yaml.safe_load(f) or {}
+
     parser = argparse.ArgumentParser(
-        description="Run embedding scripts for protein sequence files."
+        description="Run embedding scripts for protein sequence files.",
+        parents=[config_parser]
     )
 
     parser.add_argument(
         "--embed-type",
-        required=True,
         choices=["esm", "IDR_LM", "IDR_LM_random"],
+        default=config.get("embed_type"),
         help="Embedding type to generate.",
+    )
+    
+    parser.add_argument(
+        "--esm-script",
+        default=config.get("esm_script"),
+        help="Script to get esm embeddings.",
+    )
+    
+    parser.add_argument(
+        "--idr-lm-script",
+        default=config.get("idr_lm_script"),
+        help="Script to get esm embeddings.",
     )
 
     parser.add_argument(
         "--model-file",
         type=Path,
-        help="Path to the trained model checkpoint. Required for --embed-type IDR_LM.",
+        default=config.get("model_file"),
+        help="Path to the trained model checkpoint. Required for IDR_LM.",
     )
 
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=DEFAULT_DATA_DIR,
+        default=config.get("data_dir", DEFAULT_DATA_DIR),
         help="Directory containing input FASTA files.",
     )
 
     parser.add_argument(
         "--result-dir",
         type=Path,
-        default=DEFAULT_RESULT_DIR,
+        default=config.get("result_dir", DEFAULT_RESULT_DIR),
         help="Directory where embedding outputs will be written.",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args(remaining_argv)
+
+    # Validation
+    if args.embed_type is None:
+        parser.error("--embed-type must be provided either in the config or on the command line.")
+
+    if args.embed_type == "IDR_LM" and args.model_file is None:
+        parser.error("--model-file is required when --embed-type is IDR_LM.")
+
+    return args
+
+
+args = parse_args()
+ESM_SCRIPT = args.esm_script
+IDR_LM_SCRIPT = args.idr_lm_script
 
 
 def get_input_files(data_dir: Path) -> list[Path]:
@@ -51,8 +96,12 @@ def get_input_files(data_dir: Path) -> list[Path]:
     """
     if not data_dir.exists():
         raise FileNotFoundError(f"Input directory does not exist: {data_dir}")
-    if not data_dir.is_dir():
-        raise NotADirectoryError(f"Input path is not a directory: {data_dir}")
+    if data_dir.is_file():
+        if not data_dir.suffix.lower() in {".fa", ".fasta", ".faa", ".txt"}:
+            raise ValueError(f"Input path must be a fasta file or directory with fasta files")
+        else:
+            files = [data_dir]
+            return files
 
     files = sorted(
         f for f in data_dir.iterdir()
@@ -86,7 +135,7 @@ def extract_model_tag(model_file: Path) -> str:
 
 def run_command(cmd: list[str]) -> None:
     """
-    Run a subprocess command and print useful debugging output if it fails.
+    Run a subprocess command and print debugging output if it fails.
     """
     result = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -150,30 +199,31 @@ def run_idr_lm_embeddings(
 
     for input_file in input_files:
         output_name = f"{input_file.stem}_{model_tag}_IDRLM"
+        
+        if random_init:
+            output_name = f"randominit_{input_file.stem}_{model_tag}_IDRLM"
+            
+            cmd = ["python",str(IDR_LM_SCRIPT),
+            str(input_file),
+            "--out-dir", str(result_dir),
+            "--output-name", output_name]
+         
+
+        else:
+            cmd = ["python",str(IDR_LM_SCRIPT),
+                    str(input_file),
+                    "--model-path", str(model_file),
+                    "--out-dir", str(result_dir),
+                    "--output-name", output_name]
         output_prefix = result_dir / output_name
         print(f"Processing {input_file.name} -> {output_prefix}")
-
-        if random_init:
-            cmd = [
-                "python",
-                str(IDR_LM_SCRIPT),
-                str(input_file),
-            ]
-        else:
-            cmd = [
-                "python",
-                str(IDR_LM_SCRIPT),
-                str(input_file),
-                str(model_file),
-                str(output_name),
-            ]
-
+        print(cmd)
         run_command(cmd)
 
 
 def main():
     args = parse_args()
-
+    
     ensure_output_dir(args.result_dir)
     input_files = get_input_files(args.data_dir)
 

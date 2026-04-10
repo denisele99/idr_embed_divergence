@@ -1,0 +1,11 @@
+
+data_dir: /home/moseslab/denise/IDR_LM/data/sequences/IDRs/human_idrs/cdk_idrs_human.fasta #/home/moseslab/denise/embeddings/data_to_embed/ #Directory of fasta files to embed
+result_dir: /home/moseslab/denise/Paper/src/idr_diverge/embed #/home/moseslab/denise/embeddings/RES/ #Directory to write embeddings (h5)
+
+esm_script: /home/moseslab/denise/Paper/src/idr_diverge/embed/esm_embed.py
+
+idr_lm_script: /home/moseslab/denise/Paper/src/idr_diverge/IDR_LM_train/idrlm_embed.py
+bert_config: /home/moseslab/denise/Paper/src/idr_diverge/IDR_LM_train/bert_config.json #IDR_LM bert config for random initialization only
+model_file: /home/moseslab/denise/IDR_LM/src/train/saved_model/best_model_3M_50ep #/home/moseslab/denise/IDR_LM/results/model_checkpoints/1M_8b_100ep-checkpoints/checkpoint-epoch-26/' #model file path for IDR_LM only
+
+embed_type: IDR_LM #esm  #ESM | IDR_LM | IDR_LM_random ["esm", "IDR_LM", "IDR_LM_random"]

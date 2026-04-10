@@ -1,0 +1,98 @@
+
+# logging
+wandb_project: idr_lm_test1
+wandb_run_name: test1
+
+# paths
+train_data_path: /home/moseslab/denise/Paper/data/seqs/human_idrs_pos_updated_labels.fasta #/home/moseslab/denise/IDR_LM/data/sequences/mobidb_idrs_27/mobi_idrs_30M.fasta
+model_config_path: ./bert_config.json
+resume_checkpoint_path: null #Optional: load weights from a previous training run instead of starting from scratch. Set to None to initialize a new model from model_config_path
+checkpoint_output_dir: /home/moseslab/denise/Paper/res/model_checkpoints
+final_model_dir: /home/moseslab/denise/Paper/res/model_checkpoints/best
+
+
+# training mode / data
+#pretrain_train_path: data/mobiDB_train.txt
+#pretrain_eval_path: data/mobiDB_eval.txt
+
+# optimization
+batch_size: 64
+test_size: 0.15
+num_train_epochs: 1 #30
+warmup_proportion: 0.1
+learning_rate: 1e-4
+no_cuda: false
+seed: 42
+gradient_accumulation_steps: 1
+
+# tokenizer / MLM settings
+do_lower_case: true
+max_seq_length: 512
+masked_lm_prob: 0.05
+max_predictions_per_seq: 50
+
+
+
+
+# // #Training arguments
+# // MAX_LENGTH = 512
+# // BATCH_SIZE = 64
+# // TEST_SIZE = 0.15
+# // SHUFFLE_SEED = 42
+# // MLM_PROBABILITY = 0.05
+# // NUM_TRAIN_EPOCHS = 2 #35
+# // LEARNING_RATE = 1e-4
+# // NO_CUDA = False
+# // WARMUP_PROPORTION = 0.1
+
+
+# do_train = True
+
+# pretrain_train_path = "data/mobiDB_train.txt"
+# pretrain_eval_path = "data/mobiDB_eval.txt"
+
+# batch_size = 64
+# test_size = 0.14
+# num_train_epochs = 2 #35
+
+# warmup_proportion = 0.1
+# learning_rate = 1e-4
+# no_cuda = False
+
+# seed = 42
+# gradient_accumulation_steps = 1
+
+# vocab_file = "/home/moseslab/denise/IDR_LM/IDP_BERT/DisoBert_vocab.txt"
+# do_lower_case = True
+
+
+# max_seq_length = 512
+# masked_lm_prob = 0.05
+# max_predictions_per_seq = 50
+
+
+
+# # ---------------------------
+# # Configuration
+# # ---------------------------
+
+# WANDB_PROJECT = "idr_lm_test1"
+# WANDB_RUN_NAME = "test1"
+
+
+
+# # FASTA file containing the protein sequences used for pretraining
+# TRAIN_DATA_PATH = Path("/home/moseslab/denise/IDR_LM/data/sequences/mobidb_idrs_27/mobi_idrs_30M.fasta")
+# # BERT architecture configuration (hidden size, layers, attention heads, etc.)
+# MODEL_CONFIG_PATH = Path("./bert_config.json") 
+
+# # Optional: load weights from a previous training run instead of starting from scratch.
+# # Set to None to initialize a new model from MODEL_CONFIG_PATH.
+# RESUME_CHECKPOINT_PATH = None #Path("/home/moseslab/denise/IDR_LM/results/model_checkpoints/30M_64b_5ep_-checkpoints-08-28/checkpoint-228180")
+
+# # Directory where training checkpoints and intermediate model saves will be written
+# CHECKPOINT_OUTPUT_DIR = Path("/home/moseslab/denise/Paper/res/model_checkpoints")
+
+# #OUTPUT_DIR = Path("/home/moseslab/denise/IDR_LM/results")
+# FINAL_MODEL_DIR = Path("/home/moseslab/denise/Paper/res/model_checkpoints/best")
+

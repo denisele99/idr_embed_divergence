@@ -8,6 +8,7 @@ import h5py
 import numpy as np
 import pandas as pd
 import torch
+from Bio import SeqIO
 
 # Assumes read_fasta is already available in your environment
 
@@ -28,10 +29,7 @@ BATCH_SIZE = 100        # number of sequences to process before writing to HDF5
 # Load model once
 # ---------------------------
 
-model, alphabet = torch.hub.load(
-    "facebookresearch/esm:main",
-    ESM_MODEL_NAME
-)
+model, alphabet = torch.hub.load("facebookresearch/esm:main","esm1b_t33_650M_UR50S")
 batch_converter = alphabet.get_batch_converter()
 model = model.eval()
 

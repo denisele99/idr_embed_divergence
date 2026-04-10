@@ -7,13 +7,19 @@ import pandas as pd
 from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
 from transformers import BertConfig, BertModel, BertTokenizer, BertForMaskedLM
 
-sys.path.append('/home/moseslab/denise/IDR_LM/IDP_BERT')
-import pretraining_args as args
+from idr_diverge.IDR_LM_train.config import load_config
+import argparse
+from pathlib import Path
+
+'''Adapted from IDP-LM paper (Pang & Liu, 2023)'''
+
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-MODEL_CONFIG_PATH = 
-OUT_DIR = '/home/moseslab/denise/embeddings/IDR_LM'
+#MODEL_CONFIG_PATH = 
+#OUT_DIR = '/home/moseslab/denise/embeddings/IDR_LM'
+DEFAULT_CONFIG = '/home/moseslab/denise/Paper/src/idr_diverge/IDR_LM_train/pretrain_args.yaml'
+args = load_config(DEFAULT_CONFIG)
 
 def load_file_2_data(file_path):
     """Load FASTA file and return list of [id, sequence] pairs."""
@@ -37,15 +43,16 @@ def convert_sequences_to_inputs(sequences,tokenizer,vocab_list, max_seq_length):
 	
     new_data = []
     for i, sequence in enumerate(sequences):
-		one_seq  = [r for r in sequence]
-		s = 0
-		for j in range(int(-(-len(one_seq)//each_max))):  #向上取整
-			if s + each_max >= len(one_seq):
-				end = len(one_seq) - s
-				new_data.append(one_seq[s:s+end])
-			elif s + each_max < len(one_seq):
-				new_data.append(one_seq[s:s+each_max])
-			s = s + each_max
+        one_seq  = [r for r in sequence]
+        s = 0
+        
+        for j in range(int(-(-len(one_seq)//each_max))):  #向上取整
+            if s + each_max >= len(one_seq):
+                end = len(one_seq) - s
+                new_data.append(one_seq[s:s+end])
+            elif s + each_max < len(one_seq):
+                new_data.append(one_seq[s:s+each_max])
+            s = s + each_max
 
     new_new_data = []
     for one_data in new_data:
@@ -57,21 +64,21 @@ def convert_sequences_to_inputs(sequences,tokenizer,vocab_list, max_seq_length):
 
 		# 输入的 zero_padding 操作
         input_array = np.zeros(max_seq_length, dtype=int)
-		input_array[:len(input_ids)] = input_ids
+        input_array[:len(input_ids)] = input_ids
 
 		# 实际输入长度的mask 向量
-		mask_array = np.zeros(max_seq_length, dtype=int)
-		mask_array[:len(input_ids)] = 1
+        mask_array = np.zeros(max_seq_length, dtype=int)
+        mask_array[:len(input_ids)] = 1
 
 
-		one_input = []
-		one_input.append(input_array)
-		one_input.append(mask_array)
-		inputs.append(one_input)
+        one_input = []
+        one_input.append(input_array)
+        one_input.append(mask_array)
+        inputs.append(one_input)
 	
 	# print("covert finished, got totally:",len(inputs))
 
-	return inputs
+    return inputs
 
 
 
@@ -114,7 +121,7 @@ def get_encoding_from_model(sequences, inputs, model_path, config_path):
     # Create DataLoader
     test_data = TensorDataset(all_input_ids, all_input_mask)
     test_sampler = SequentialSampler(test_data)
-    test_dataloader = DataLoader(test_data, sampler=test_sampler, batch_size=args.test_batch_size)
+    test_dataloader = DataLoader(test_data, sampler=test_sampler, batch_size=args.batch_size)
 
     get_encodings = []
 
@@ -207,8 +214,10 @@ def main(data, encoding_path, model_path,out_name='encodings'):
     
     #if inputs_sequences:
     # Load vocabulary and tokenizer
-    vocab_list = [line.strip("\n") for line in open(args.vocab_file, 'r')]
+    
     tokenizer = BertTokenizer.from_pretrained("Rostlab/prot_bert")
+    #vocab_list = [line.strip("\n") for line in open(args.vocab_file, 'r')]
+    vocab_list = list(tokenizer.vocab.keys())
 
     #Split data into batches
     #print(len(data))
@@ -232,7 +241,7 @@ def main(data, encoding_path, model_path,out_name='encodings'):
         inputs = convert_sequences_to_inputs(inputs_sequences, tokenizer, vocab_list, args.max_seq_length)
 
         # Get model encodings
-        encodings = get_encoding_from_model(inputs_sequences, inputs, model_path, config_path = MODEL_CONFIG_PATH)
+        encodings = get_encoding_from_model(inputs_sequences, inputs, model_path, config_path = args.model_config_path)
 
             # Save encodings to files
             #for seq_name, encoding in zip([fd[0] for fd in final_data], encodings):
@@ -276,20 +285,65 @@ def get_embedding_IDP(data_file, file_path, model_path,output_name):
     print("Done")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Generate IDR_LM embeddings for protein sequences in a FASTA file."
+    )
+
+    parser.add_argument(
+        "seq_input_path",
+        type=Path,
+        help="Path to the input FASTA file containing protein sequences."
+    )
+
+    parser.add_argument(
+        "--model-path",
+        type=Path,
+        default=None,
+        help=(
+            "Optional path to a trained IDR_LM checkpoint. "
+            "If omitted, a randomly initialized model will be used."
+        )
+    )
+
+    parser.add_argument(
+        "--output-name",
+        type=str,
+        default=None,
+        help=(
+            "Base name for the output file. "
+            "Defaults to 'randominit_<input_filename>' if not provided."
+        )
+    )
+
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        help="Directory where embedding files will be written."
+    )
+
+    return parser.parse_args()
 
 
-#use main with sys.argv
-if __name__ == '__main__':
+if __name__ == "__main__":
+    args_parse = parse_args()
 
-    seq_input_path = sys.argv[1]
-    if len(sys.argv)>2:
-        model_path = sys.argv[2]
+    seq_input_path = args_parse.seq_input_path
+    model_path = args_parse.model_path
+
+    if args_parse.output_name is not None:
+        output_name = args_parse.output_name
     else:
-        model_path = None
-    if len(sys.argv)>3:
-        output_name = sys.argv[3]
-    else:
-        output_name = 'randominit_' + seq_input_path.split('/')[-1].split('.')[0]
-    # Run the embedding generation process
-    output_path = f"{OUT_DIR}/{output_name}"
-    get_embedding_IDP(seq_input_path, output_path, model_path,output_name)
+        if model_path is None:
+            output_name = f"randominit_{seq_input_path.stem}"
+        else:
+            output_name = seq_input_path.stem
+
+    #output_path = args_parse.out_dir / output_name
+
+    get_embedding_IDP(
+        data_file=str(seq_input_path),
+        file_path=str(args_parse.out_dir),
+        model_path=str(model_path) if model_path is not None else None,
+        output_name=output_name,
+    )

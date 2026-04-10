@@ -1,0 +1,40 @@
+{
+  "os":  "Linux-6.8.0-59-generic-x86_64-with-glibc2.35",
+  "python":  "CPython 3.11.7",
+  "startedAt":  "2026-04-10T18:37:30.147160Z",
+  "program":  "/home/moseslab/denise/Paper/src/idr_diverge/IDR_LM_train/train.py",
+  "codePath":  "src/idr_diverge/IDR_LM_train/train.py",
+  "codePathLocal":  "train.py",
+  "git":  {
+    "remote":  "https://github.com/denisele99/idr_embed_divergence.git",
+    "commit":  "496c05f0838960d17a5595610c2965470384f3c5"
+  },
+  "email":  "denise.le@mail.utoronto.ca",
+  "root":  "/home/moseslab/denise/Paper/src/idr_diverge/IDR_LM_train",
+  "host":  "soma",
+  "executable":  "/media/data/.conda/envs/denise_trn/bin/python",
+  "cpu_count":  14,
+  "cpu_count_logical":  20,
+  "gpu":  "NVIDIA RTX A4500",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "1006450962432",
+      "used":  "765031071744"
+    }
+  },
+  "memory":  {
+    "total":  "67099389952"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA RTX A4500",
+      "memoryTotal":  "21464350720",
+      "cudaCores":  7168,
+      "architecture":  "Ampere",
+      "uuid":  "GPU-ac9d3f27-568b-165b-c465-a09fa856d26f"
+    }
+  ],
+  "cudaVersion":  "12.2",
+  "writerId":  "qj1bzoatrvhg3lbnwawjwbjnaft5eb8k"
+}
