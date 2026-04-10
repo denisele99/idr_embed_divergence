@@ -394,3 +394,11 @@ def write_h5_embed_from_df(embed_df, out_path):
         f.create_dataset("embeddings", data=embeddings)
     
     return out_path
+
+
+def seq_identity(aln1,aln2):
+
+    # Calculate sequence identity
+    sequence_identity = sum(a == b for a, b in zip(aln1, aln2)) / len(aln1)
+
+    return sequence_identity

@@ -43,7 +43,7 @@ from sklearn.metrics import pairwise_distances
 
 #from helpers import load_config, combine_dicts, collect_values_by_key, merge_dict
 from idr_diverge.utils.helpers import transform_data, combine_dicts, merge_dict, collect_values_by_key, embedding_h5_to_dataframe,save_pickle,read_pickle, find_files_by_identifier, find_files_by_prefix, extract_IDs_from_end
-from idr_diverge.distances.embed_distance import EmbedDistanceMatrix #_build_index_maps,
+from idr_diverge.distances.embed_distance import EmbedDistanceMatrix, _build_index_maps
 
 
 # ----------------------------
@@ -412,7 +412,7 @@ def neighbour_dist_groupwise_fast(
     group2_ids: List[str],
     distance_matrix: np.ndarray,
     id_to_idx: dict[str, int],
-    background_sorted_vals,  # whatever type you use
+    background_sorted_vals,  #TODO add type
     return_dict: bool = False,
 ) -> Union[np.ndarray, dict[tuple[str, str], float]]:
     """
@@ -618,34 +618,56 @@ class ComputeNDistanceDict(): #return distance dictionary
     #         background_sorted_vals=background_sorted_vals,
     #    )
     
-    def _prepare_extended_dm_state(self, ortholog_df) -> DistanceState:
+    def _prepare_extended_dm_state(self, ortholog_df:Optional[pd.DataFrame]=None) -> DistanceState:
         """Update distance matrix and calculate distances relative to the background/base embeddings"""
         emb_matrix = self.emb_matrix
         #ortholog_df = ortholog_df.copy()
-        ortholog_df = ortholog_df.drop_duplicates(subset=[self.id_col]).copy()
-        ortholog_df[self.id_col] = ortholog_df[self.id_col].astype(str).str.strip()
-
-        new_dm, updated_ids = emb_matrix.add_to_distance_matrix(ortholog_df)
+        if not ortholog_df:
+            all_ids = self.ids
+            id_to_idx = {id_: k for k, id_ in enumerate(all_ids)}
+            
+            #Input ids is same as background
+            background_idx = np.array(list(id_to_idx.values()),dtype=int)
+            
+            dm = emb_matrix.distance_matrix
+            
+            background_sorted_vals = _precompute_background_sorted(dm, background_idx)
+            
+            return DistanceState(
+                dm=dm,
+                all_ids=all_ids,
+                id_to_idx=id_to_idx,
+                background_sorted_vals=background_sorted_vals,
+                background_idx = background_idx
+            )
         
-        new_dm = new_dm.astype(np.float32, copy=False) #Just added 03-24
         
-        all_ids = list(updated_ids)
-        id_to_idx = {id_: k for k, id_ in enumerate(all_ids)}
+        else:
+            ortholog_df = ortholog_df.drop_duplicates(subset=[self.id_col]).copy()
+            ortholog_df[self.id_col] = ortholog_df[self.id_col].astype(str).str.strip()
 
-        # competitors = background IDs only
-        background_idx = np.array(
-            [i for i, id_ in enumerate(all_ids) if id_ in self.background_ids],
-            dtype=int
-        )
-        background_sorted_vals = _precompute_background_sorted(new_dm, background_idx)
+            new_dm, updated_ids = emb_matrix.add_to_distance_matrix(ortholog_df)
+            
+            new_dm = new_dm.astype(np.float32, copy=False) #Just added 03-24
+            
+            all_ids = list(updated_ids)
+            id_to_idx = {id_: k for k, id_ in enumerate(all_ids)}
 
-        return DistanceState(
-            dm=new_dm,
-            all_ids=all_ids,
-            id_to_idx=id_to_idx,
-            background_sorted_vals=background_sorted_vals,
-            background_idx = background_idx
-        )
+            # competitors = background IDs only
+            background_idx = np.array(
+                [i for i, id_ in enumerate(all_ids) if id_ in self.background_ids],
+                dtype=int
+            )
+            background_sorted_vals = _precompute_background_sorted(new_dm, background_idx)
+
+            return DistanceState(
+                dm=new_dm,
+                all_ids=all_ids,
+                id_to_idx=id_to_idx,
+                background_sorted_vals=background_sorted_vals,
+                background_idx = background_idx
+            )    
+
     
     
     def between_segment_single_spp(self, gene_pos_list) -> np.ndarray:        
@@ -662,10 +684,28 @@ class ComputeNDistanceDict(): #return distance dictionary
         # n_distances = [find_NN_pair_fast(pair[0], pair[1], distance_matrix, id_to_idx, background_sorted_vals) 
         #            for pair in combinations_ids]
         
-        n_distances = neighbour_dist_groupwise(group1_ids=select_ids, group2_ids=select_ids, #TODO update
-                                 all_ids=ids,
-                                 distance_matrix = distance_matrix,
-                                 return_dict=False) #TODO test if this actually works
+        # n_distances = neighbour_dist_groupwise(group1_ids=select_ids, group2_ids=select_ids, #TODO update
+        #                          all_ids=ids,
+        #                          distance_matrix = distance_matrix,
+        #                          return_dict=False) #TODO test if this actually works
+        
+        # id_to_idx = {id_: k for k, id_ in enumerate(self.background_ids)} 
+        # #Input ids is same as background
+        # background_idx = np.array(list(id_to_idx.values()),dtype=int)
+        
+        # dm = self.emb_matrix.distance_matrix
+        # background_sorted_vals = _precompute_background_sorted(dm, background_idx)
+        
+        state = self._prepare_extended_dm_state()
+        
+        n_distances = neighbour_dist_groupwise_fast(
+                        group1_ids=select_ids,
+                        group2_ids=select_ids,
+                        distance_matrix=state.dm,
+                        id_to_idx=state.id_to_idx,
+                        background_sorted_vals=state.background_sorted_vals,
+                        return_dict=False
+                    )
         
         return np.array(n_distances)
     
