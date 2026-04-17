@@ -51,6 +51,8 @@ from goatools.go_enrichment import GOEnrichmentStudy
 
 
 
+
+
 def read_go_annotations(go_file, column_gene="Entry", column_goIDs="Gene Ontology IDs") -> dict:
     """
     Reads a GO annotation file and returns a dictionary mapping gene names to lists of GO terms.
@@ -99,7 +101,7 @@ def load_go_annotations(path:str):
     go_annot = read_go_annotations(annot_df.dropna(subset='Gene Ontology IDs'))
     return go_annot
 
-CONFIG_PATH = '/home/moseslab/denise/Paper/configs/go_config.txt'
+CONFIG_PATH = '/home/moseslab/denise/Paper/configs/go_config.yaml'
 config_data = load_config(CONFIG_PATH)
 
 GO_ANNOTATIONS = load_go_annotations(config_data.get("go_annotations"))
