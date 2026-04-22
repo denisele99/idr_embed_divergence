@@ -2,11 +2,13 @@ from __future__ import absolute_import
 import wandb
 import os
 from pathlib import Path
-import random
 import numpy as np
 import time
 from datasets import Dataset, DatasetDict, load_dataset
 from typing import Dict, List
+import argparse
+
+from idr_diverge.utils.helpers import resolve_config_paths
 
 from transformers import (
     BertConfig,
@@ -14,16 +16,43 @@ from transformers import (
     BertTokenizer,
     DataCollatorForLanguageModeling,
     Trainer,
-    #TrainerCallback,
     TrainingArguments,
 )
 
-#from idr_diverge.utils.helpers import read_fasta
 from idr_diverge.IDR_LM_train.config import load_config
 
 
-CONFIG_PATH = '/home/moseslab/denise/Paper/src/idr_diverge/IDR_LM_train/pretrain_args.yaml'
+DEFAULT_CONFIG_PATH = './pretrain_args.yaml'
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Run script using a YAML config file."
+    )
+
+    parser.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        default=DEFAULT_CONFIG_PATH,
+        help="Path to YAML config file."
+    )
+
+    args = parser.parse_args()
+
+    # Convert to absolute path and check it exists
+    args.config = args.config.resolve()
+
+    if not args.config.exists():
+        parser.error(f"Config file does not exist: {args.config}")
+
+    return args
+
+CONFIG_PATH = parse_args().config
+
 args = load_config(CONFIG_PATH)
+
+args = resolve_config_paths(config=args, config_path=CONFIG_PATH,
+                                  path_keys={'train_data_path', 'model_config_path', 'resume_checkpoint_path', 'final_model_dir'})
 
 
 # ---------------------------
@@ -131,22 +160,13 @@ def load_fasta_as_dataset(file_path):
     sequences = read_fasta(file_path)
     return Dataset.from_list(sequences)
 
-# class SaveCheckpointCallback(TrainerCallback):
-#     def on_epoch_end(self, args, state, control, **kwargs):
-#         epoch = int(state.epoch)
-#         output_dir = CHECKPOINT_OUTPUT_DIR  / f"checkpoint-epoch-{epoch}"
-#         kwargs["model"].save_pretrained(output_dir)
-#         print(f"Saved model checkpoint to {output_dir}")
-
-
-
 def initialize_wandb():
     os.environ["WANDB_LOG_MODEL"] = "checkpoint"
     wandb.init(project=args.wandb_project, name=args.wandb_run_name)
 
 def load_and_tokenize_dataset(data_file: Path, tokenizer: BertTokenizer) -> DatasetDict:
     dataset = load_fasta_as_dataset(str(data_file))
-    dataset = dataset.shuffle(seed=args.seed).select(range(10)) #TODO comment this out later
+    dataset = dataset.shuffle(seed=args.seed)#.select(range(10)) #TODO comment this out later
     dataset = dataset.train_test_split(test_size=args.test_size)
 
     print("Tokenizing dataset...") 
@@ -227,8 +247,7 @@ def main():
         args=training_args,
         data_collator=data_collator,
         train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        #callbacks=[SaveCheckpointCallback()] #TODO remove this? was originally hidden
+        eval_dataset=eval_dataset
     )
 
     trainer.train()

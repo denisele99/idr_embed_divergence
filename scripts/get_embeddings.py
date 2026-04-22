@@ -2,13 +2,14 @@ from pathlib import Path
 import argparse
 import subprocess
 import yaml
+from idr_diverge.utils.helpers import resolve_config_paths
 
 
-DEFAULT_DATA_DIR = Path("/home/moseslab/denise/embeddings/data_to_embed/")
-DEFAULT_RESULT_DIR = Path("/home/moseslab/denise/embeddings/RES/")
+#DEFAULT_DATA_DIR = Path("/home/moseslab/denise/embeddings/data_to_embed/")
+#DEFAULT_RESULT_DIR = Path("/home/moseslab/denise/embeddings/RES/")
 
-ESM_SCRIPT = Path("/home/moseslab/denise/Paper/src/idr_diverge/embed/esm_embed.py")
-IDR_LM_SCRIPT = Path("/home/moseslab/denise/Paper/src/idr_diverge/embed/idrlm_embed.py")
+#DEFAULT_ESM_SCRIPT = Path("/home/moseslab/denise/Paper/src/idr_diverge/embed/esm_embed.py")
+#DEFAULT_IDR_LM_SCRIPT = Path("/home/moseslab/denise/Paper/src/idr_diverge/embed/idrlm_embed.py")
 
 
 def parse_args():
@@ -27,6 +28,19 @@ def parse_args():
     if config_args.config:
         with open(config_args.config) as f:
             config = yaml.safe_load(f) or {}
+        
+        config = resolve_config_paths(
+            config,
+            config_args.config,
+            path_keys={
+                "esm_script",
+                "idr_lm_script",
+                "bert_config",
+                "model_file",
+                "data_dir",
+                "result_dir",
+            },
+        )
 
     parser = argparse.ArgumentParser(
         description="Run embedding scripts for protein sequence files.",
@@ -62,14 +76,14 @@ def parse_args():
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=config.get("data_dir", DEFAULT_DATA_DIR),
+        default=config.get("data_dir"),
         help="Directory containing input FASTA files.",
     )
 
     parser.add_argument(
         "--result-dir",
         type=Path,
-        default=config.get("result_dir", DEFAULT_RESULT_DIR),
+        default=config.get("result_dir"),
         help="Directory where embedding outputs will be written.",
     )
 

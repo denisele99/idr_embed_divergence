@@ -5,9 +5,10 @@ from typing import List, Optional, Literal, Any, Dict, Iterable
 import yaml
 import pandas as pd
 import numpy as np
-
-from idr_diverge.distances.compute_ndist import ComputeNDistanceDict, _load_embeddings, _load_ortholog_embeddings, _parse_ids,save_pickle, load_fam_map, calc_FND
-from idr_diverge.utils.helpers import read_pickle, resolve_config_paths
+import time
+import json
+from idr_diverge.distances.compute_ndist import ComputeNDistanceDict, _load_embeddings, _load_ortholog_embeddings, _parse_ids,save_pickle, collect_values_by_key, load_fam_map, calc_FND
+from idr_diverge.utils.helpers import read_pickle
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,7 @@ class OutputsConfig:
 class ComputeConfig:
     #metric: Literal["cosine", "euclidean", "manhattan"] = "cosine"
     chunk_size: int = 5000
-    #n_jobs: int = 1
+    n_jobs: int = 1
     job_id: int = 0
 
 @dataclass(frozen=True)
@@ -74,7 +75,7 @@ class PipelineConfig:
     neighbour_divergence: NeighbourDivergenceConfig
     random_neighbour_divergence: RandomNeighbourDivergenceConfig
     ortholog_filter: OrthologFilterConfig
-    #run: RunConfig
+    run: RunConfig
     FND: FNDconfig
     raw: Dict[str, Any]  # keep raw dict for debugging/forward compatibility
 
@@ -89,12 +90,6 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
     path = Path(path)
     with path.open("r") as f:
         cfg = yaml.safe_load(f)
-    
-    cfg = resolve_config_paths(config=cfg, config_path = path,
-                               path_keys = {'background_emb', 'ortholog_emb', 'fam_map',
-                                            'homolog_annotation', 'out_distance', 'out_random',
-                                            'fam_distance_matrix', 'bg_distance_matrix', 'output_results'}
-    )
 
     # inputs
     inputs = InputsConfig(
@@ -106,7 +101,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
     )
 
     outputs = OutputsConfig(
-        out_distance=Path(cfg["neighbour_divergence"]["out_distance"]),
+        out_distance=Path(cfg["outputs"]["out_distance"]),
         out_random = Path(cfg["random_neighbour_divergence"]["out_random"]),
         #overwrite=bool(cfg["outputs"].get("overwrite", False)),
     )
@@ -114,7 +109,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
     compute = ComputeConfig(
         #metric=cfg["compute"].get("metric", "cosine"),
         chunk_size=int(cfg["compute"].get("chunk_size", 5000)),
-        #n_jobs=int(cfg["compute"].get("n_jobs", 1)),
+        n_jobs=int(cfg["compute"].get("n_jobs", 1)),
         job_id=int(cfg["compute"].get("job_id", 0))
     )
 
@@ -128,12 +123,14 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         enabled=bool(cfg["random_neighbour_divergence"].get("enabled", False)),
         dist_type=cfg["neighbour_divergence"].get("dist_type", "within"),
         segment=cfg["neighbour_divergence"].get("segment", "IDR"),
+        #dist_type=cfg["random_neighbour_divergence"]["dist_type"],
+        #segment=cfg["random_neighbour_divergence"].get("segment", "IDR"),
         sample_size=int(cfg["random_neighbour_divergence"].get("sample_size", 100)),
         random_seed=(int(cfg["random_neighbour_divergence"]["random_seed"])
     if cfg["random_neighbour_divergence"].get("random_seed") is not None
     else None),
         return_mode=cfg["neighbour_divergence"].get("return_mode", "aggregate")
-       
+        #return_mode=cfg["random_neighbour_divergence"].get("return_mode", "aggregate"),
     )
 
     ortholog_filter = OrthologFilterConfig(
@@ -144,7 +141,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         min_species=int(cfg["ortholog_filter"].get("min_species", 10)),
     )
 
-    #run = RunConfig(verbose=bool(cfg["run"].get("verbose", True)))
+    run = RunConfig(verbose=bool(cfg["run"].get("verbose", True)))
     
     FND = FNDconfig( #TODO
         enabled=bool(cfg["calculate_FND"].get("enabled", False)),
@@ -160,7 +157,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         neighbour_divergence=neighbour_div,
         random_neighbour_divergence=random_neighbour_div,
         ortholog_filter=ortholog_filter,
-        #run=run,
+        run=run,
         FND=FND,
         raw=cfg,
     )
@@ -232,7 +229,7 @@ def compute_ortholog_divergence(
 
 ##RUN PIPELINES
 
-def run_divergence_pipeline(cfg: PipelineConfig) -> pd.DataFrame:
+def run_divergence_pipeline(cfg: PipelineConfig, track=True) -> pd.DataFrame:
     """
     Calculate distance matrix 
     """
@@ -240,6 +237,16 @@ def run_divergence_pipeline(cfg: PipelineConfig) -> pd.DataFrame:
     # IO setup
     out_dir = Path(cfg.outputs.out_distance)
     out_dir.mkdir(parents=True, exist_ok=True)
+    
+    if track:
+        # Sentinel paths
+        success_flag = out_dir / "_SUCCESS.json"
+        started_flag = out_dir / "_STARTED.json"
+        # Optional: mark started (helpful for debugging)
+        started_flag.write_text(json.dumps({
+            "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "running": f"fam_map={cfg.inputs.fam_map}, ortholog_emb={cfg.inputs.ortholog_emb}, background_emb={cfg.inputs.background_emb}",
+        }, indent=2))
 
     rows: List[Dict[str, Any]] = []
     
@@ -272,6 +279,8 @@ def run_divergence_pipeline(cfg: PipelineConfig) -> pd.DataFrame:
     
     n_done = 0
     for (fam_id,genes) in targets.items():
+        #fam_id = target.fam_id
+        #genes = target.genes
         
         present_ids = [g for g in genes if any(g in id for id in id_to_idx)]
         missing = [g for g in genes if not any(g in id for id in id_to_idx)]
@@ -281,6 +290,130 @@ def run_divergence_pipeline(cfg: PipelineConfig) -> pd.DataFrame:
             continue
         if missing:
             print(f"Warning: {len(missing)} gene IDs not found for family {fam_id}: {missing}")
+        
+        ortho_df = _load_ortholog_embeddings(ortho_embeddings_path=ortholog_emb_path, gene_ids=genes)
+
+        grp_ids = _parse_ids(ortho_df.iloc[:,0])
+        gene_pos = set(grp_ids.loc[grp_ids["__genes"].isin(genes), "__gpos"])
+        
+        #print('GPOS', gene_pos)
+
+        # 2) process
+        dist = compute_ortholog_divergence(
+            engine=engine,
+            gene_pos=gene_pos,
+            ortholog_df=ortho_df,
+            dist_type=dist_type,
+            return_mode=cfg.neighbour_divergence.return_mode,
+            apply_ortholog_filter=apply_ortholog_filter,
+            filter_params= filter_params,
+            chunk_size=chunk_size
+        )
+
+        # 3) save
+        out_path = f"{out_dir}/{fam_id}_{dist_type}_{segment}_diverge"
+        save_pickle(dist, out_path)
+        print(f"Saved ndist for family {fam_id} to {out_path}")
+        n_done += 1
+    if track:
+        # Only write success *after* loop finishes without exceptions
+        success_flag.write_text(json.dumps({
+            "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "n_written": n_done,
+        }, indent=2))
+
+    return pd.DataFrame(rows)
+
+# def shard_targets(targets: dict, job_id: int, num_jobs: int):
+#     items = sorted(targets.items(), key=lambda kv: kv[0])  # stable
+#     return [kv for i, kv in enumerate(items) if i % num_jobs == job_id]
+
+def shard_targets(targets: dict, job_id: int, num_jobs: int):
+    """
+    Split targets evenly across jobs.
+    Each job receives a contiguous chunk of families.
+    """
+    items = sorted(targets.items())  # stable ordering
+    n = len(items)
+
+    chunk = (n + num_jobs - 1) // num_jobs  # ceiling division
+    start = job_id * chunk
+    end = min(start + chunk, n)
+
+    return items[start:end]
+
+def run_divergence_pipeline_parallel(cfg: PipelineConfig, track=True) -> pd.DataFrame:
+    """
+    Calculate distance matrix 
+    """
+
+    # IO setup
+    out_dir = Path(cfg.outputs.out_distance)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    #TODO add to config
+    num_jobs = getattr(cfg.compute, "n_jobs", 1)
+    job_id = getattr(cfg.compute, "job_id", 0)
+    job_id = int(job_id)
+    num_jobs=int(num_jobs)
+    print('Job id',job_id)
+    print('num_jobs', num_jobs)
+    if num_jobs < 1:
+        raise ValueError("cfg.compute.num_jobs musqt be >= 1")
+    if not (0 <= job_id < num_jobs):
+        raise ValueError("cfg.compute.job_id must be in [0, num_jobs)")
+    
+    if track:
+        # Sentinel paths
+        success_flag = out_dir / "_SUCCESS.json"
+        started_flag = out_dir / "_STARTED.json"
+        # Optional: mark started (helpful for debugging)
+        started_flag.write_text(json.dumps({
+            "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "running": f"fam_map={cfg.inputs.fam_map}, ortholog_emb={cfg.inputs.ortholog_emb}, background_emb={cfg.inputs.background_emb}",
+        }, indent=2))
+
+    rows: List[Dict[str, Any]] = []
+    
+    #LOAD ARGUMENTS
+    out_dir = cfg.outputs.out_distance
+    dist_type = cfg.neighbour_divergence.dist_type
+    segment = cfg.neighbour_divergence.segment
+    ortholog_emb_path = cfg.inputs.ortholog_emb
+    chunk_size = cfg.compute.chunk_size
+    
+    targets = load_fam_map(cfg.inputs.fam_map)  # Dict[str, List[str]]
+    target_items = shard_targets(targets, job_id=job_id, num_jobs=num_jobs)
+    
+    apply_ortholog_filter = cfg.ortholog_filter.enabled
+    filter_params = None
+    if apply_ortholog_filter:
+        homol_ref = read_pickle(cfg.ortholog_filter.homolog_annotation)
+        filter_params = dict(
+            relationship=cfg.ortholog_filter.ortholog_types,
+            min_species_coverage=cfg.ortholog_filter.min_species_coverage,
+            min_species=cfg.ortholog_filter.min_species,
+            homology_ref = homol_ref)
+    
+     # compute state / distance matrix
+    bg_embed_df = _load_embeddings(cfg.inputs.background_emb)
+    engine = ComputeNDistanceDict(bg_embed_df)
+    
+    id_to_idx = {sid: i for i, sid in enumerate(engine.ids)}
+    
+    n_done = 0
+    for (fam_id,genes) in target_items:
+        #fam_id = target.fam_id
+        #genes = target.genes
+        
+        present_ids = [g for g in genes if any(g in id for id in id_to_idx)]
+        missing = [g for g in genes if not any(g in id for id in id_to_idx)]
+
+        if not present_ids:
+            print(f"[job {job_id}/{num_jobs}]: No gene IDs found for family {fam_id}, skipping.")
+            continue
+        if missing:
+            print(f"[job {job_id}/{num_jobs}] Warning: {len(missing)} gene IDs not found for family {fam_id}: {missing}")
         
         ortho_df = _load_ortholog_embeddings(ortho_embeddings_path=ortholog_emb_path, gene_ids=genes)
 
@@ -302,11 +435,23 @@ def run_divergence_pipeline(cfg: PipelineConfig) -> pd.DataFrame:
         # 3) save
         out_path = f"{out_dir}/{fam_id}_{dist_type}_{segment}_diverge"
         save_pickle(dist, out_path)
-        print(f"Saved ndist for family {fam_id} to {out_path}")
+        #print(f"Saved ndist for family {fam_id} to {out_path}")
+        print(f"[job {job_id}/{num_jobs}] Saved ndist for family {fam_id} to {out_path}")
         n_done += 1
+    if track:
+        # Only write success *after* loop finishes without exceptions
+        success_flag.write_text(json.dumps({
+            "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "job_id": job_id,
+            "num_jobs": num_jobs,
+            "n_written": n_done,
+        }, indent=2))
+        
+    print(f"Families assigned to this job:")
+    for fam_id, _ in target_items:
+        print("  ", fam_id)
 
     return pd.DataFrame(rows)
-
 
 def run_random_divergence_pipeline(cfg:PipelineConfig
 ) -> pd.DataFrame:
@@ -364,6 +509,16 @@ def run_random_divergence_pipeline(cfg:PipelineConfig
                 gene_ids=rand_genes
             )
     
+    #TODO - should I get rid of this?
+    #print(ortho_df.head())
+    #ortho_ids_df = _parse_ids(ortho_df[0])
+    #print('len',len(ortho_ids_df['__gpos'].unique()))
+    #remove = ['HUMAN', np.nan]
+    #keep_ids = list(ortho_ids_df[~ortho_ids_df['__genes'].isin(remove)]['__id'])
+    #ortho_df = ortho_df[ortho_df[0].isin(keep_ids)]
+    
+    
+    
     # 2) process
     print('compute divergence')
     dist = compute_ortholog_divergence(
@@ -376,6 +531,10 @@ def run_random_divergence_pipeline(cfg:PipelineConfig
                 filter_params=filter_params,
                 chunk_size=chunk_size
             )
+    #REPORT HOW MANY SPECIES/GENES LOST IN FILTERING, probably have to oversample? Or don't filter the random bg?
+    
+    # Aggregate
+    #rand_agg = collect_values_by_key(list(dist.values()))
 
     # Save
     if out_path is None:
@@ -383,7 +542,30 @@ def run_random_divergence_pipeline(cfg:PipelineConfig
     save_pickle(dist, str(out_path))
     print(f"Saved to {out_path}.pkl")
     
-    return 
+    return #out_path #TODO
+
+
+import time
+from pathlib import Path
+
+def _wait_for_success_flag(out_dir: Path, timeout_s: int = 86400, poll_s: int = 10) -> None:
+    flag = out_dir / "_SUCCESS.json"
+    t0 = time.time()
+    while not flag.exists():
+        if time.time() - t0 > timeout_s:
+            raise TimeoutError(f"Timed out waiting for success flag: {flag}")
+        time.sleep(poll_s)
+
+
+def _wait_for_file(path: Path, timeout_s: int = 86400, poll_s: int = 10) -> None:
+    t0 = time.time()
+    while not path.exists():
+        if time.time() - t0 > timeout_s:
+            raise TimeoutError(f"Timed out waiting for file: {path}")
+        time.sleep(poll_s)
+
+
+
 
 
 
@@ -448,6 +630,14 @@ def run_FND_pipeline(cfg: "PipelineConfig") -> pd.DataFrame:
     else:
         bg_dist_path = Path(bg_dist_path)
 
+    # Wait for prerequisites
+    #if fam_dist_path.is_dir():
+        #print('waiting')
+    #    _wait_for_success_flag(fam_dist_path)   # waits for fam_dist_path/_SUCCESS.json 
+    #else:
+    #    _wait_for_file(fam_dist_path)
+
+    #_wait_for_file(bg_dist_path)
 
     # Compute FND
     return calc_FND(
@@ -476,6 +666,11 @@ def run_pipeline(cfg_path: str | Path):
         run_random_divergence_pipeline(cfg)
         return
     
+    if cfg.compute.n_jobs > 1:
+        print(f'Running family neighbour divergence in parallel ({cfg.compute.n_jobs} jobs)...')
+        #print("Warning: n_jobs > 1 is not currently implemented, running with n_jobs=1.") #TODO: implement parallelization
+        run_divergence_pipeline_parallel(cfg)
+    
     else:
         print('Running family neighbour divergence...')
         # for now just run neighbour divergence, can add CLI args to specify which pipeline to run if needed
@@ -490,6 +685,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_pipeline(args.config)
+    
+
+#TODO
+#incoporate FND arguments into pipeline config args
+#incorporate option to compute FND directly from distance matrices if provided, otherwise compute distance matrices from embeddings and then compute FND, into run_FND_pipeline function
+#
 
 
 

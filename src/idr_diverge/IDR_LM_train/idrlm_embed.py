@@ -38,7 +38,6 @@ def convert_sequences_to_inputs(sequences,tokenizer,vocab_list, max_seq_length):
     """
     Convert protein sequences to model input format with tokenization and padding.
     """
-	# print("Got your input sequences:",len(sequences))
     each_max = max_seq_length - 2
 	
     new_data = []
@@ -62,11 +61,11 @@ def convert_sequences_to_inputs(sequences,tokenizer,vocab_list, max_seq_length):
     for one_data in new_new_data:
         input_ids = tokenizer.convert_tokens_to_ids(one_data)
 
-		# 输入的 zero_padding 操作
+		# zero_padding
         input_array = np.zeros(max_seq_length, dtype=int)
         input_array[:len(input_ids)] = input_ids
 
-		# 实际输入长度的mask 向量
+		# mask
         mask_array = np.zeros(max_seq_length, dtype=int)
         mask_array[:len(input_ids)] = 1
 
@@ -97,9 +96,6 @@ def get_encoding_from_model(sequences, inputs, model_path, config_path):
     # Device configuration (use GPU if available)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # Load the pre-trained BERT model
-   
-    #model = BertForMaskedLM.from_pretrained(model_path)
     
     if not(model_path):
         #Randomly initialized model
@@ -107,6 +103,7 @@ def get_encoding_from_model(sequences, inputs, model_path, config_path):
         model = BertForMaskedLM(config=config)
     
     else:
+        # Load the pre-trained BERT model
         model = BertModel.from_pretrained(model_path)
     
     model.to(device)
@@ -220,10 +217,8 @@ def main(data, encoding_path, model_path,out_name='encodings'):
     vocab_list = list(tokenizer.vocab.keys())
 
     #Split data into batches
-    #print(len(data))
     data_batches = list(split_into_batches(data, batch_size))
-    #print(len(data_batches))
-    #print(data_batches)
+
     for i, data_batch in enumerate(data_batches):
         print(str(i),'/',str(len(data_batches)))
         #print(data_batch)

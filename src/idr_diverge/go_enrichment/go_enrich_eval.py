@@ -1,26 +1,8 @@
 import numpy as np
-import sys
-import pandas as pd
-import csv
-from collections import defaultdict, Counter
-import os
-import obonet
 from itertools import combinations
-from scipy import stats
-
-from goatools.obo_parser import GODag
-from goatools.base import get_godag
-
-from pygosemsim import download, graph
 from pygosemsim import similarity
 
-
-
-from functools import lru_cache
-
-
-from idr_diverge.go_enrichment.go_enrichment_ import load_go_sim_graph, GO_ANNOTATIONS, config_data
-from idr_diverge.utils.helpers import load_config
+from idr_diverge.go_enrichment.go_enrichment_ import load_go_sim_graph
 
 
 def jaccard_similarity(a,b): #jaccard similarity

@@ -1,6 +1,12 @@
 from collections import defaultdict
 from typing import Iterable, Dict, Any, List
 from pathlib import Path
+import pandas as pd
+import h5py
+import re
+from typing import List, Dict, Any, Iterable, Union
+import pickle
+
 
 
 def load_config(config_path):
@@ -11,77 +17,63 @@ def load_config(config_path):
     return config
 
 
-def combine_dicts(dict_list):
-    from collections import defaultdict
-    '''Combine dictionary of dictionaries by common keys'''
-    combined = defaultdict(list)
-    for d in dict_list:
-        for k, v in d.items():
-            if isinstance(v,list):
-                combined[k].extend(v)  # append the list
-            else:
-                combined[k].extend([v])
-    return dict(combined)
-
-
-
-
-def collect_values_by_key(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, List[Any]]:
+def resolve_config_paths(config, config_path, path_keys=None):
     """
-    Aggregate values from multiple dictionaries by key.
+    Recursively resolve relative path values in a config dictionary.
 
-    For each key appearing in one or more dictionaries, all associated values
-    are collected into a list. If a value is itself a list, its elements are
-    extended into the result list.
+    Parameters
+    ----------
+    config : dict
+        Parsed YAML config.
+    config_path : str or Path
+        Path to the YAML file.
+    path_keys : set[str] | None
+        Optional set of keys whose values should be treated as paths.
+        If None, path-like strings are inferred automatically.
 
-    This function preserves all values and does not overwrite data.
-
-    Example:
-        >>> dicts = [{"A": 1, "B": 2},{"A": 4, "C": 5}]
-        >>> collect_values_by_key(dicts)
-        {'A': [1, 4], 'B': [2], 'C': [5]}
-
-    Args:
-        dicts: A list of dictionaries with potentially overlapping keys.
-
-    Returns:
-        A dictionary mapping each key to a list of all values encountered.
+    Returns
+    -------
+    dict
+        New config dictionary with resolved paths.
     """
-    aggregated = defaultdict(list)
+    config_dir = Path(config_path).resolve().parent
 
-    for d in dicts:
-        for key, value in d.items():
-            if isinstance(value, list):
-                aggregated[key].extend(value)
-            else:
-                aggregated[key].append(value)
+    def is_pathlike(key, value):
+        if not isinstance(value, str):
+            return False
 
-    return dict(aggregated)
+        # Explicit key list takes priority
+        if path_keys is not None:
+            return key in path_keys
 
+        # Otherwise infer from value
+        p = Path(value)
+        return (
+            "/" in value
+            or "\\" in value
+            or value.startswith(".")
+            or p.suffix != ""
+        )
 
-def merge_dict(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, Any]:
-    """
-    Merge multiple dictionaries into one, overwriting values on key collisions.
+    def recurse(obj, parent_key=None):
+        if isinstance(obj, dict):
+            return {
+                k: recurse(v, k)
+                for k, v in obj.items()
+            }
 
-    When the same key appears in multiple dictionaries, the value from the
-    last dictionary in the iterable is retained
-      Example:
-        >>> dicts = [
-        ...     {"A": 1, "B": 2},
-        ...     {"A": 3},
-        ...     {"C": 4}
-        ... ]
-        >>> merge_dicts_last_wins(dicts)
-        {'A': 3, 'B': 2, 'C': 4}
-    Args:
-        dict_ls: A list of dictionaries to merge.
-    Returns:
-        A single dictionary containing all key-value pairs from the input dictionaries.
-    """
-    merged_dict ={}
-    for d in dicts:
-        merged_dict.update(d)
-    return merged_dict
+        if isinstance(obj, list):
+            return [recurse(v, parent_key) for v in obj]
+
+        if is_pathlike(parent_key, obj):
+            p = Path(obj)
+            if not p.is_absolute():
+                return config_dir / p
+            return p
+
+        return obj
+
+    return recurse(config)
 
 
 ##      Read and write files    ##
@@ -99,9 +91,6 @@ def embedding_h5_to_dataframe(file_path: str|Path, change_id=False): #TODO remov
     Returns:
     - pd.DataFrame: DataFrame with one row per sequence and embedding columns.
     """
-    
-    import pandas as pd
-    import h5py
     
     file_path = str(file_path)  # Ensure it's a string for h5py
     
@@ -140,7 +129,7 @@ def embedding_h5_to_dataframe(file_path: str|Path, change_id=False): #TODO remov
 
     return df_expanded
 
-import pickle
+
 
 def save_pickle(data,outpath):
     with open(f"{outpath}.pkl", "wb") as f:
@@ -154,10 +143,6 @@ def read_pickle(path):
     return data
 
 
-
-
-import re
-from typing import List, Dict, Any, Iterable, Union
 
 def extract_IDs_from_end(
     ids: List[str],
@@ -230,7 +215,6 @@ def extract_IDs_from_end(
                         else sorted(vals, key=lambda x: (x is None, str(x)))
 
     return unique
-
 
 
 from pathlib import Path
@@ -402,3 +386,72 @@ def seq_identity(aln1,aln2):
     sequence_identity = sum(a == b for a, b in zip(aln1, aln2)) / len(aln1)
 
     return sequence_identity
+
+def combine_dicts(dict_list):
+    '''Combine dictionary of dictionaries by common keys'''
+    combined = defaultdict(list)
+    for d in dict_list:
+        for k, v in d.items():
+            if isinstance(v,list):
+                combined[k].extend(v)  # append the list
+            else:
+                combined[k].extend([v])
+    return dict(combined)
+
+
+def collect_values_by_key(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, List[Any]]:
+    """
+    Aggregate values from multiple dictionaries by key.
+
+    For each key appearing in one or more dictionaries, all associated values
+    are collected into a list. If a value is itself a list, its elements are
+    extended into the result list.
+
+    This function preserves all values and does not overwrite data.
+
+    Example:
+        >>> dicts = [{"A": 1, "B": 2},{"A": 4, "C": 5}]
+        >>> collect_values_by_key(dicts)
+        {'A': [1, 4], 'B': [2], 'C': [5]}
+
+    Args:
+        dicts: A list of dictionaries with potentially overlapping keys.
+
+    Returns:
+        A dictionary mapping each key to a list of all values encountered.
+    """
+    aggregated = defaultdict(list)
+
+    for d in dicts:
+        for key, value in d.items():
+            if isinstance(value, list):
+                aggregated[key].extend(value)
+            else:
+                aggregated[key].append(value)
+
+    return dict(aggregated)
+
+
+def merge_dict(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, Any]:
+    """
+    Merge multiple dictionaries into one, overwriting values on key collisions.
+
+    When the same key appears in multiple dictionaries, the value from the
+    last dictionary in the iterable is retained
+      Example:
+        >>> dicts = [
+        ...     {"A": 1, "B": 2},
+        ...     {"A": 3},
+        ...     {"C": 4}
+        ... ]
+        >>> merge_dicts_last_wins(dicts)
+        {'A': 3, 'B': 2, 'C': 4}
+    Args:
+        dict_ls: A list of dictionaries to merge.
+    Returns:
+        A single dictionary containing all key-value pairs from the input dictionaries.
+    """
+    merged_dict ={}
+    for d in dicts:
+        merged_dict.update(d)
+    return merged_dict

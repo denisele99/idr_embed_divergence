@@ -1,49 +1,19 @@
 from __future__ import annotations
-from typing import Dict, Iterable, List, Literal, Mapping
-
+from typing import Dict, Iterable, List, Literal, Optional, Union,Any
 import numpy as np
-import glob
 import pandas as pd
-from scipy.stats import ttest_ind
-import statistics as stat
 from scipy import stats
-import glob
-import sys
 import math
-import random
-import time
 from collections import defaultdict
 from itertools import product,combinations
-from scipy.stats import norm
-#from analyze_NN_dist import *
-from itertools import product
-from typing import Optional
-
-from itertools import product
-from typing import Iterable, Mapping, Sequence, Optional, Union,Any
-
-import numpy as np
 from dataclasses import dataclass
 from pathlib import Path
 import json
 import yaml
-from pathlib import Path
-
-import csv
 import os
-from math import comb
-import re
-from sklearn.metrics import pairwise_distances
 
-#sys.path.append('/home/moseslab/denise/Paper/src/')
-
-#from utils.helper_functions import save_pickle,embedding_h5_to_dataframe, get_ortholog_prefixes, find_files_by_prefix, find_files_by_identifier, extract_IDs_from_end, read_pickle
-#from utils.filter_orthologs import filter_orthologs
-#from config import cdk_ids, human_idr_embed_path, human_pfam_embed_path, unrelated_genes, genedict, idr_ortho_embed_dir,protein_families
-
-#from helpers import load_config, combine_dicts, collect_values_by_key, merge_dict
-from idr_diverge.utils.helpers import transform_data, combine_dicts, merge_dict, collect_values_by_key, embedding_h5_to_dataframe,save_pickle,read_pickle, find_files_by_identifier, find_files_by_prefix, extract_IDs_from_end
-from idr_diverge.distances.embed_distance import EmbedDistanceMatrix, _build_index_maps
+from idr_diverge.utils.helpers import transform_data, collect_values_by_key, embedding_h5_to_dataframe,save_pickle,read_pickle,  find_files_by_prefix
+from idr_diverge.distances.embed_distance import EmbedDistanceMatrix
 
 
 # ----------------------------
@@ -350,8 +320,7 @@ def _rank_in_row(i:int, j:int, distance:np.ndarray, background_sorted_vals:np.nd
     """
     d = distance[i, j]
     if np.isnan(d):
-        return np.inf  # masked/out-of-scope → treat as infinitely far
-    # insertion point gives first position among ties (like argsort + np.where(...)[0][0])
+        return np.inf  
     return int(np.searchsorted(background_sorted_vals[i], d, side='left'))
 
 def neighbour_dist(id1:str, id2:str, distance:np.ndarray, id_to_idx:dict[str,int], background_sorted_vals:np.ndarray) -> float:
@@ -364,48 +333,6 @@ def neighbour_dist(id1:str, id2:str, distance:np.ndarray, id_to_idx:dict[str,int
     r21 = _rank_in_row(i2, i1, distance, background_sorted_vals)
     return (r12 + r21) / 2.0
 
-def neighbour_dist_groupwise(
-    group1_ids: List[str],
-    group2_ids: List[str],
-    all_ids: List[str],
-    distance_matrix: np.ndarray,
-    added_ids: Optional[List[str]] = None,
-    return_dict: bool = False,
-) -> Union[np.ndarray, dict[str, float]]:
-    """
-    Compute neighbour distances between all possible pairs between two groups of embeddings.
-    Skips pairs where either ID is not present in the ID->index map.
-
-    If return_dict=True, returns { "a|b": dist } else returns np.ndarray of distances.
-    """
-
-    # Build / extend ID index map
-    if added_ids is None:
-        id_to_idx, _ = _build_index_maps(all_ids)
-        background_sorted_vals = _precompute_background_sorted(distance_matrix)
-    else:
-        id_to_idx, added = _build_index_maps(all_ids, added_ids)
-        background_sorted_vals = _precompute_background_sorted(distance_matrix, added)
-
-    # Filter to known IDs once
-    g1 = [x for x in group1_ids if x in id_to_idx]
-    g2 = [x for x in group2_ids if x in id_to_idx]
-
-    if return_dict:
-        out: dict[str, float] = {}
-        for a, b in product(g1, g2):
-            if a == b:
-                continue
-            out[f"{a}|{b}"] = neighbour_dist(a, b, distance_matrix, id_to_idx, background_sorted_vals)
-        return out
-
-    dists: list[float] = []
-    for a, b in product(g1, g2):
-        if a == b:
-            continue
-        dists.append(neighbour_dist(a, b, distance_matrix, id_to_idx, background_sorted_vals))
-    return np.asarray(dists, dtype=float)
-
 
 def neighbour_dist_groupwise_fast(
     group1_ids: List[str],
@@ -416,8 +343,11 @@ def neighbour_dist_groupwise_fast(
     return_dict: bool = False,
 ) -> Union[np.ndarray, dict[tuple[str, str], float]]:
     """
-    Same functionality, but assumes id_to_idx and background_sorted_vals are already precomputed.
-    Uses tuple keys if return_dict=True (faster/safer than "a|b" strings).
+    Compute neighbour distances between all possible pairs between two groups of embeddings.
+    Skips pairs where either ID is not present in the ID->index map. 
+    Assumes id_to_idx and background_sorted_vals are already precomputed.
+
+    If return_dict=True, returns { (a,b): dist } else returns np.ndarray of distances.
     """
 
     # Filter to known IDs (dict membership is O(1))
@@ -497,13 +427,11 @@ def filter_ortholog_region_ids(
         allowed = set(prot_map.get(relationship, []))
 
     if not allowed:
-        #print('relationship filtered')
         return []
 
     # Keep allowed proteins, plus always keep keep_species (e.g., HUMAN)
     df = df[df["__ensembl_id"].isin(allowed) | (df["__species"] == keep_species)].copy()
     if df.empty:
-        #print('keep species filtered')
         return []
 
     # ---- 3) Deduplicate within (__species, __gpos) using percent identity ----
@@ -590,39 +518,11 @@ class ComputeNDistanceDict(): #return distance dictionary
                 'min_species_coverage':0.3,
                 'min_species':5}
     
-    # def _prepare_extended_dm_state(self, ortholog_df) -> DistanceState:
-    #     '''
-    #     add distance matrix (of ortholog_df to current_df) to current_df
-        
-    #     :param self: Description
-    #     :param ortholog_df: Description
-    #     new_dm              # the updated distance matrix
-    #     all_ids             # IDs corresponding to rows/columns of matrix
-    #     added_ids          # which IDs were newly added
-    #     id_to_idx          # mapping: ID → row index
-    #     background_sorted_vals   # precomputed sorted distances per row
-    #     '''
-    #     emb_matrix=self.emb_matrix
-    #     added_ids = ortholog_df[self.id_col].astype(str).to_list()
-    #     new_dm, updated_ids = emb_matrix.add_to_distance_matrix(ortholog_df)
-        
-    #     all_ids = list(updated_ids)
-    #     id_to_idx, added_mask = _build_index_maps(all_ids, added_ids)
-    #     background_sorted_vals = _precompute_background_sorted(new_dm, added_mask)
-        
-    #     return DistanceState(
-    #         dm=new_dm,
-    #         all_ids=all_ids, #original + added
-    #         added_ids=added_ids,
-    #         id_to_idx=id_to_idx,
-    #         background_sorted_vals=background_sorted_vals,
-    #    )
-    
     def _prepare_extended_dm_state(self, ortholog_df:Optional[pd.DataFrame]=None) -> DistanceState:
         """Update distance matrix and calculate distances relative to the background/base embeddings"""
         emb_matrix = self.emb_matrix
-        #ortholog_df = ortholog_df.copy()
-        if not ortholog_df:
+        
+        if ortholog_df is None or ortholog_df.empty:
             all_ids = self.ids
             id_to_idx = {id_: k for k, id_ in enumerate(all_ids)}
             
@@ -674,27 +574,6 @@ class ComputeNDistanceDict(): #return distance dictionary
         distance_matrix = self.emb_matrix.distance_matrix
         ids = self.ids
         select_ids = [id for id in ids if any(g in id for g in gene_pos_list)]
-        
-        # id_to_idx, _ = _build_index_maps(ids=ids)
-        # background_sorted_vals = _precompute_background_sorted(distance=distance_matrix)
-        
-        # #Get pairwise distances:
-        # combinations_ids = combinations(select_ids,2)
-        
-        # n_distances = [find_NN_pair_fast(pair[0], pair[1], distance_matrix, id_to_idx, background_sorted_vals) 
-        #            for pair in combinations_ids]
-        
-        # n_distances = neighbour_dist_groupwise(group1_ids=select_ids, group2_ids=select_ids, #TODO update
-        #                          all_ids=ids,
-        #                          distance_matrix = distance_matrix,
-        #                          return_dict=False) #TODO test if this actually works
-        
-        # id_to_idx = {id_: k for k, id_ in enumerate(self.background_ids)} 
-        # #Input ids is same as background
-        # background_idx = np.array(list(id_to_idx.values()),dtype=int)
-        
-        # dm = self.emb_matrix.distance_matrix
-        # background_sorted_vals = _precompute_background_sorted(dm, background_idx)
         
         state = self._prepare_extended_dm_state()
         
@@ -1051,351 +930,7 @@ class ComputeNDistanceDict(): #return distance dictionary
     #             return species_dist_by_species
             
         
-    
-    
 
-
-# def within_ortholog_divergence(
-#     self,
-#     gene_pos_list: List[str],
-#     ortholog_df: pd.DataFrame,
-#     apply_ortholog_filter: bool = False,
-#     filter_params: Optional[dict] = None,
-#     as_dict: bool = False,
-# ) -> Union[Dict, dict]:
-#     """
-#     Compute within-ortholog divergence between human and other species for each gene position.
-
-#     For each gene position (gpos), this function compares the human ortholog region(s)
-#     to ortholog regions from other species using a precomputed embedding distance matrix.
-#     Distances are computed using neighbour rank or distance metrics.
-
-#     Optionally applies ortholog filtering before computation.
-
-#     Parameters
-#     ----------
-#     gene_pos_list : list[str]
-#         List of gene position identifiers (gpos) to evaluate.
-
-#     ortholog_df : pd.DataFrame
-#         DataFrame containing ortholog region IDs and metadata. Must include self.id_col.
-
-#     apply_ortholog_filter : bool, default=False
-#         If True, filters ortholog IDs using filter_ortholog_region_ids() before analysis.
-
-#     filter_params : dict, optional
-#         Parameters passed to filter_ortholog_region_ids(). Uses self.ortholog_filter_params if None.
-
-#     as_dict : bool, default=False
-#         If True, returns nested dict: {gpos → {species → distance}}.
-#         If False, returns aggregated dict: {species → list of distances across gene positions}.
-
-#     Returns
-#     -------
-#     dict
-#         Either:
-
-#         Nested dict (if as_dict=True):
-#             {gene_position → {species → distance}}
-
-#         Aggregated dict (if as_dict=False):
-#             {species → list of distances}
-
-#         Returns empty dict if no valid ortholog comparisons exist.
-
-#     Notes
-#     -----
-#     Only compares human orthologs against non-human orthologs.
-
-#     Requires precomputed embeddings accessible via self.precompute_ortholog_df().
-#     """
-
-#     id_col = self.id_col
-
-#     # Ensure unique gene positions
-#     gene_pos_list = list(set(gene_pos_list))
-
-#     # Ensure ID column is string type
-#     ortholog_df = ortholog_df.copy()
-#     ortholog_df[id_col] = ortholog_df[id_col].astype(str)
-
-#     # ---------------------------------------------------
-#     # Step 1: Optional ortholog filtering
-#     # ---------------------------------------------------
-#     if apply_ortholog_filter:
-
-#         params = filter_params if filter_params is not None else self.ortholog_filter_params
-
-#         # Unique candidate IDs
-#         candidate_ids = ortholog_df[id_col].dropna().unique().tolist()
-
-#         # Filter IDs
-#         filtered_ids = filter_ortholog_region_ids(
-#             ortholog_ids=candidate_ids,
-#             **params
-#         )
-
-#         # Keep only filtered rows
-#         ortholog_df = ortholog_df[
-#             ortholog_df[id_col].isin(filtered_ids)
-#         ]
-
-#         # Exit early if nothing remains
-#         if ortholog_df.empty:
-#             print(
-#                 f"No orthologs passed filtering criteria: {params}. "
-#                 f"Gene pos list: {gene_pos_list}"
-#             )
-#             return {}
-
-#     # ---------------------------------------------------
-#     # Step 2: Parse IDs into structured columns
-#     # ---------------------------------------------------
-#     df = self._parse_ids(ortholog_df)
-
-#     # Build lookup:
-#     # (species, gene_position) → list of region IDs
-#     grp = (
-#         df.groupby(['__species', '__gpos'])['__id']
-#         .apply(list)
-#         .to_dict()
-#     )
-
-#     # Get all non-human species present
-#     all_species = sorted(
-#         {species for species, _ in grp.keys() if species != 'HUMAN'}
-#     )
-
-#     # Storage for results
-#     spp_dist_dicts_ls = []           # aggregated mode
-#     spp_dist_dicts = defaultdict(dict)  # per-gene mode
-
-#     # ---------------------------------------------------
-#     # Step 3: Ensure distance matrix includes ortholog IDs
-#     # ---------------------------------------------------
-#     added_ids, new_dm, updated_ids = self.precompute_ortholog_df(
-#         ortholog_df
-#     )
-
-#     # ---------------------------------------------------
-#     # Step 4: Compute divergence per gene position
-#     # ---------------------------------------------------
-#     for gp in gene_pos_list:
-
-#         # Human ortholog IDs
-#         human_ids = grp.get(('HUMAN', gp), [])
-
-#         # All non-human ortholog IDs
-#         species_ids = [
-#             s
-#             for sp in all_species
-#             for s in grp.get((sp, gp), [])
-#         ]
-
-#         # Skip if missing comparison groups
-#         if not human_ids or not species_ids:
-#             continue
-
-#         # Compute pairwise neighbour distances
-#         ranks = neighbour_dist_groupwise(
-#             group1_ids=human_ids,
-#             group2_ids=species_ids,
-#             added_ids=added_ids,
-#             all_ids=list(updated_ids),
-#             distance_matrix=new_dm,
-#             return_dict=True
-#         )
-
-#         # ---------------------------------------------------
-#         # Step 5: Map distances to species
-#         # ---------------------------------------------------
-#         result_per_species = {}
-
-#         for species in all_species:
-
-#             for pair, dist in ranks.items():
-
-#                 if species in pair:
-#                     result_per_species[species] = dist
-
-#         # Store results
-#         if as_dict:
-
-#             spp_dist_dicts[gp] = result_per_species
-
-#         else:
-
-#             spp_dist_dicts_ls.append(result_per_species)
-
-#     # ---------------------------------------------------
-#     # Step 6: Return results
-#     # ---------------------------------------------------
-#     if as_dict:
-
-#         return dict(spp_dist_dicts)
-
-#     else:
-
-#         # Aggregate into:
-#         # species → list of distances
-#         distances = collect_values_by_key(
-#             spp_dist_dicts_ls
-#         )
-
-#         return distances
-
-
-# ----------------------------
-# Pipelines
-# ----------------------------
-
-
-
-# from dataclasses import dataclass
-# from pathlib import Path
-# from typing import Any, Dict, List, Optional
-
-
-# def compute_ortholog_divergence(
-#     engine:ComputeNDistanceDict,
-#     gene_pos: Iterable[str],
-#     ortholog_df: pd.DataFrame,
-#     cfg: OrthologDivergenceConfig,
-# ):
-#     """Dispatch to within/between ortholog divergence based on cfg.dist_type."""
-    
-#     common_kwargs = dict(
-#         gene_pos_list=gene_pos,
-#         ortholog_df=ortholog_df,
-#         apply_ortholog_filter=cfg.apply_ortholog_filter,
-#         filter_params=cfg.filter_params,
-#     )
-
-#     if cfg.dist_type == "between":
-#         return engine.between_ortholog_divergence(**common_kwargs)
-
-#     if cfg.dist_type == "within":
-#         return engine.within_ortholog_divergence(
-#             **common_kwargs,
-#             group_by_gene=(cfg.return_mode == "per_gene"),
-#         )
-
-#     raise ValueError(f"Invalid dist_type: {cfg.dist_type}")
-
-
-# def compute_random_divergence_pipeline(cfg:CommonConfig,
-#     homolog_df: Optional[pd.DataFrame],
-#     verbose: bool,
-# ) -> pd.DataFrame:
-#     """
-#     Calculate distance matrix 
-#     """
-    
-#     if not cfg.filter_orthologs:
-#         return None
-#     if cfg.homolog_annotation is None:
-#         raise SystemExit("--filter-orthologs requires --homolog-annotation")
-    
-#     out_dir = cfg.out_dir
-#     dist_type = cfg.dist_type
-#     segment = cfg.segment
-#     sample_size = cfg.sample_size
-    
-#     engine = ComputeNDistanceDict(cfg.background_emb)
-    
-#     # Sample genes uniformly
-#     bg_ids = _parse_ids(engine.ids)
-#     genes = bg_ids["__genes"].dropna().unique()
-#     if sample_size > len(genes):
-#         raise ValueError(f"sample_size={sample_size} > available genes={len(genes)}")
-
-#     rand_genes = (pd.Series(genes).sample(n=sample_size, random_state=random_seed).tolist())
-#     rand_gpos = (bg_ids.loc[bg_ids["__genes"].isin(rand_genes), "__gpos"].dropna().unique().tolist())
-
-#     #load random embeddings
-#     ortho_df= _load_ortholog_embeddings(
-#                 ortho_embeddings_path=cfg.ortholog_emb,
-#                 gene_ids=rand_genes
-#             )
-    
-#      # 2) process
-#     dist = compute_ortholog_divergence(
-#                 engine=engine,
-#                 gene_pos=rand_gpos,
-#                 ortholog_df=ortho_df,
-#                 dist_type=dist_type,
-#                 apply_ortholog_filter=cfg.apply_ortholog_filter,
-#                 filter_params= cfg.filter_params
-#             )
-#     #REPORT HOW MANY SPECIES/GENES LOST IN FILTERING, probably have to oversample? Or don't filter the random bg?
-    
-#     # Aggregate
-#     rand_agg = collect_values_by_key(list(dist.values()))
-
-#     # Save
-#     out_path = Path(out_dir) / f"random_{sample_size}_{dist_type}_{segment}_diverge"
-#     save_pickle(dist, str(out_path))
-
-#     return rand_agg
-
-
-    
-# def compute_divergence_pipeline(cfg:CommonConfig,
-#     matrix: MatrixWithIds,
-#     targets: List[FamilyTarget],
-#     homolog_df: Optional[pd.DataFrame],
-#     verbose: bool,
-# ) -> pd.DataFrame:
-#     """
-#     Calculate distance matrix 
-#     """
-    
-#     if not cfg.filter_orthologs:
-#         return None
-#     if cfg.homolog_annotation is None:
-#         raise SystemExit("--filter-orthologs requires --homolog-annotation")
-    
-#     id_to_idx = {sid: i for i, sid in enumerate(matrix.ids)}
-#     rows: List[Dict[str, Any]] = []
-    
-#     out_dir = cfg.out_dir
-#     dist_type = cfg.dist_type
-#     #segment = 'IDR'
-#     segment = cfg.segment
-    
-#     engine = ComputeNDistanceDict(cfg.background_emb)
-
-#     for target in targets:
-#         fam_id = target.fam_id
-#         genes = target.genes
-        
-#         present_ids = [g for g in genes if g in id_to_idx]
-#         #missing = [g for g in genes if g not in id_to_idx]
-
-#         if not present_ids:
-#             print(f"No gene IDs found for family {fam_id}, skipping.")
-#             continue
-        
-#         ortho_df = _load_ortholog_embeddings(ortho_path=cfg.ortholog_emb, select_gene_ids=genes)
-
-#         grp_ids = _parse_ids(ortho_df.iloc[:,0])
-#         gene_pos = set(grp_ids.loc[grp_ids["__genes"].isin(genes), "__gpos"])
-
-#         # 2) process
-#         dist = compute_ortholog_divergence(
-#             engine=engine,
-#             gene_pos=gene_pos,
-#             ortholog_df=ortho_df,
-#             dist_type=dist_type,
-#             apply_ortholog_filter=apply_ortholog_filter,
-#             filter_params= filter_params
-#         )
-
-#         # 3) save
-#         out_path = f"{out_dir}/{fam_id}_{dist_type}_{segment}_diverge"
-#         save_pickle(dist, out_path)
-
-#     return pd.DataFrame(rows)
 
     
 
@@ -1464,7 +999,6 @@ def calc_FND(fam_dist_dict_path,
     
     '''Calculate FND (Family Neighbour Divergence)'''
     
-    #check if paths exist
     fam_dist_dict_path = Path(fam_dist_dict_path)
     unrelated_dist_dict_path = Path(unrelated_dist_dict_path)
     
