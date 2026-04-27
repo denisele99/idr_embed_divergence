@@ -8,7 +8,7 @@ src/idr_diverge/IDR_LM_train/
 
 ## Requirements
 
-- install lm_train environment (see env yaml)
+- install lm_train environment (see train_env yaml)
 - conda activate lm_train
 
 
@@ -28,7 +28,7 @@ idrlm_embed.py
 * `config.py`
   Defines the training/config dataclasses and parses the YAML config.
 
-* `IDRLM_pretrain_args.yaml`
+* `idrlm_pretrain.yaml`
   Training configuration file containing model, dataset, and training parameters.
 
 * `train.py`
@@ -42,24 +42,25 @@ idrlm_embed.py
 Train the model using:
 
 ```bash id="bykgio"
-python train.py --config IDRLM_pretrain_args.yaml
+python idrlm_train.py --config idrlm_pretrain.yaml
 ```
 
 ## Training Config
 
-Example `IDRLM_pretrain_args.yaml`:
+Example `idrlm_pretrain.yaml`:
 
 ```yaml id="s3i0v4"
-train_file: ../data/train.txt
-validation_file: ../data/valid.txt
+# logging
+wandb_project: idr_lm
+wandb_run_name: run1
 
-output_dir: ../models/idr_lm
-
-num_train_epochs: 35
-per_device_train_batch_size: 16
-learning_rate: 5e-5
-
-bert_config: ../src/idr_diverge/IDR_LM_train/bert_config.json
+# paths
+#train/test split randomly from training file
+train_data_path: ../data/seqs/human_idrs_pos_updated_labels.fasta #/home/moseslab/denise/IDR_LM/data/sequences/mobidb_idrs_27/mobi_idrs_30M.fasta #TODO change to sample dataset
+model_config_path: ../src/idr_diverge/IDR_LM_train/bert_config.json
+resume_checkpoint_path: null #Optional: load weights from a previous training run instead of starting from scratch. Set to None to initialize a new model from model_config_path
+checkpoint_output_dir: ../res/model_checkpoints
+final_model_dir: ../res/model_checkpoints/best
 ```
 
 Paths are interpreted relative to the YAML config file.

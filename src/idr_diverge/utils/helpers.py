@@ -387,16 +387,16 @@ def seq_identity(aln1,aln2):
 
     return sequence_identity
 
-def combine_dicts(dict_list):
-    '''Combine dictionary of dictionaries by common keys'''
-    combined = defaultdict(list)
-    for d in dict_list:
-        for k, v in d.items():
-            if isinstance(v,list):
-                combined[k].extend(v)  # append the list
-            else:
-                combined[k].extend([v])
-    return dict(combined)
+# def combine_dicts(dict_list):
+#     '''Combine dictionary of dictionaries by common keys'''
+#     combined = defaultdict(list)
+#     for d in dict_list:
+#         for k, v in d.items():
+#             if isinstance(v,list):
+#                 combined[k].extend(v)  # append the list
+#             else:
+#                 combined[k].extend([v])
+#     return dict(combined)
 
 
 def collect_values_by_key(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, List[Any]]:

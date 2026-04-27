@@ -10,11 +10,17 @@ This repository contains code to reproduce all analyses and figures
 presented in the manuscript.
 
 ## Contents
-1.
+Data
+1. Generating pLM embeddings
+Neighbour Distance and Family Neighbour Divergence (FND) Calculation
+
 
 ## Requirements
 - Python ≥ 3.10
 - Conda / Mamba
+
+environments included: envs/env.yml -> 
+envs/train_env.yml -> environment for training IDR-LM only
 
 ```bash 
 conda env create -f environment.yml
@@ -23,7 +29,7 @@ conda activate paper-env
 
 ## How to install
 git clone [link]
-inside repo: pip install -e . (name of thing)
+inside repo: pip install -e . 
 
 ## FULL ANALYSIS PIPELINE FOR REPRODUCIBILITY
 
@@ -43,12 +49,8 @@ Assumes IDs look like 'SPECIES_..._...'; __gpos is the join of the last |pos| to
 
 - Annotation files for each protein sequence dataset
 
-
-## Required Input Data Format
-
-Most scripts assume a common identifier format across FASTA and embedding files.
-
 ### Sequence Identifier Format
+Most scripts assume a common identifier format across FASTA and embedding files.
 
 All sequence IDs should follow:
 
@@ -56,34 +58,19 @@ All sequence IDs should follow:
 {SPECIES}_{UNIPROT_ID}_{SEGMENT_TYPE}_{START}_{END}
 ```
 
+ SPECIES is "HUMAN" OR ENSEMBL identifier
+
 Example:
 
 ```text id="bslzgh"
 HUMAN_Q14004_IDR_1_694
-MOUSE_P12345_DOMAIN_45_120
-```
-
-Scripts assume:
-
-* species = first token (`SPECIES`)
-* region/position (`__gpos`) = last tokens, e.g.
-
-```python id="pn4t62"
-"_".join(id.split("_")[-4:])
-# Q14004_IDR_1_694
+ENSNLEP00000006574_P12345_PFAM_45_120
 ```
 
 ### FASTA Format
 
 FASTA headers must exactly match the ID format above:
 
-```text id="m4djx0"
->HUMAN_Q14004_IDR_1_694
-MSEQQRQE...
-
->MOUSE_P12345_PFAM_45_120
-MTAPGAA...
-```
 
 ### Embedding File Format
 
@@ -103,13 +90,6 @@ HUMAN_Q14004_IDR_1_694,0.12,-0.53,...
 
 #### HDF5 (`.h5`)
 
-Must contain datasets:
-
-```text id="fdv51g"
-ids
-embeddings
-```
-
 Example structure:
 
 ```text id="hylrjx"
@@ -118,21 +98,95 @@ example.h5
 └── embeddings
 ```
 
-where:
+# Generating Protein Language Model Embeddings
 
-* `ids` = list of sequence IDs
-* `embeddings` = matrix of embedding vectors
+This script generates protein sequence embeddings from FASTA files using select protein language model (pLM) embedding methods.
 
-The number of `ids` must equal the number of embedding rows.
+## Purpose
+
+Generate embeddings for protein or protein segment sequences (e.g. IDRs or domains) from FASTA files for downstream analyses such as neighbour divergence, clustering, UMAP visualization, or GO enrichment.
+
+Supported embedding types:
+
+* `esm`: embeddings from the ESM-1b protein language model
+* `IDR_LM`: embeddings from a trained IDR-specific language model checkpoint
+* `IDR_LM_random`: embeddings from the same IDR language model architecture with randomly initialized weights
 
 
-## Generating plm embeddings
+## Input
 
+The script accepts either:
+* a single FASTA file
+* a directory containing multiple FASTA files
+
+specified through `data_dir`.
+
+Each FASTA entry should contain a unique sequence identifier and sequence, for example:
+
+```text
+>HUMAN_Q14004_IDR_1_694
+MSEQQR...
+```
+
+### Required Inputs
+
+* FASTA file or directory of FASTA files
+* Embedding type (`esm`, `IDR_LM`, or `IDR_LM_random`)
+
+### Additional Required Input for `IDR_LM`
+
+If using `IDR_LM`, you must also provide:
+
+* `model_file`: path to the trained model checkpoint
+
+## Configuration
+
+Example `configs/embed_config.yaml`:
+
+```yaml
+embed_type: esm
+
+esm_script: ../src/idr_diverge/embed/esm_embed.py
+idr_lm_script: ../src/idr_diverge/embed/idrlm_embed.py
+
+data_dir: ../data/fasta
+result_dir: ../results/embeddings
+
+# Only required for embed_type: IDR_LM
+model_file: ../models/idr_lm_checkpoint.pt
+```
+Paths in the config file are interpreted relative to the config file location.
+
+## Command
+
+Run using a config file:
+
+```bash
+python get_embeddings.py --config configs/embed_config.yaml
+```
+
+You can also override config values from the command line:
+
+```bash
+python get_embeddings.py \
+    --config configs/embed_config.yaml \
+    --embed-type IDR_LM \
+    --model-file models/best_model.pt
+```
+
+## Output
+
+For each input FASTA file, the script generates an HDF5 (`.h5`) embedding file in `result_dir`.
+
+The HDF5 file contains:
+
+* `ids`: sequence identifiers from the FASTA file
+* `embeddings`: embedding vectors corresponding to each sequence
 
 
 # Neighbour Distance and Family Neighbour Divergence (FND) Calculation
 
-This pipeline calculates neighbour distance divergence between paralogous protein regions and compares it to an ortholog-based background to compute Family Neighbour Divergence (FND).
+Pipeline calculates neighbour distance divergence between paralogous protein regions and compares it to an ortholog-based background to compute Family Neighbour Divergence (FND).
 
 ### Overview
 
@@ -277,48 +331,114 @@ Group_id,log_mean Divergence_per_ortholog,FND,1samp_ttest_stat,1samp_ttest_pvalu
 Higher positive FND values indicate paralogous segments are more diverged than expected from the ortholog/background baseline.
 
 
-# GO enrichment for IDR function annotation - 50-NN GO enrichment
+
+# GO Enrichment from Embedding Neighbours (or BLAST hits)
+
+This script identifies significantly enriched GO terms for protein regions by performing GO enrichment on their nearest neighbours in embedding space.
+
+Neighbours can be selected using:
+
+* `knn`: k nearest neighbours in pLM embedding space (default)
+* `BLAST`: top k BLAST hits
+* `RANDOM`: random k neighbours as a background/control
+
+Default behaviour uses 50 nearest neighbours (`k = 50`).
+
+## Command
+
+```bash id="ccjlwm"
+python run_go_enrichment.py --config configs/go_config.yaml
+```
+
+## Required Inputs
+
+Specified inside config:
+
+* Embedding file containing the query regions and background dataset
+* GO ontology (`.obo`)
+* GO annotation table
+* Optional BLAST output file if using `search_method: BLAST`
+
+Query IDs must exactly match the identifiers in the embedding file.
+
+## Output
+
+The script writes a CSV table containing significantly enriched GO terms for each query region.
+includes dictionaries of enriched GO terms and their adjusted p-values, and dictionary with their term counts in k neighbours / background term count
+Example columns:
+
+```text id="8m7rf8"
+query_id,term_adj_p,term_counts
+```
+
+Example:
+
+```text id="vrq3pw"
+Q96ND8_IDR_60_211,{'GO:0006357': 2.23e-14, 'GO:0019219': 1.38e-11, ...}, {'GO:0006355': '20/7717', 'GO:2001141': '20/7774'}
+```
+
+## Related Scripts
+
+To evaluate or summarize enrichment results, see:
+
+```text id="f0b7g5"
+scripts/run_enrich_eval.py
+```
+
+##Notes:
+src/idr_diverge/go_enrichment/go_enrichment_.py and go_eval.py will break if configs/go_config.yaml is renamed or moved from configs (depends on go_obo and go_annotation file defined there)
 
 
 
-## Training IDR-LM
--src/idr_diverge/IDR_LM_train
-codes:
+# Training IDR-LM
+
+This directory contains code for training the IDR-LM protein language model and generating embeddings from the trained model.
+
+```text id="7p64nl"
+src/idr_diverge/IDR_LM_train/
+```
+
+## Requirements
+
+- install lm_train environment (see train_env yaml)
+- conda activate lm_train
+
+## Files
+
+```text id="8ikn9h"
 - bert_config.json -> model config
 - config.py -> structure of config 
-- IDRLMpretrain_args.yaml -> pretrain args
-- train.py _>
-- idrlm_embed.py -> get IDR_LM embeddings from pretrained or randomly initialized model
+- idrlm_pretrain.yaml -> pretrain args
+- idrlm_train.py -> main training script
+- idrlm_embed.py -> generate IDR_LM embeddings from pretrained/model checkpoint or randomly initialized model
+```
 
-Command:
+## Training command
 
-python train.py --config IDRLM_pretrain_args.yaml
+Train the model using:
+
+```bash id="bykgio"
+python scripts/idrlm_train.py --config idrlm_pretrain.yaml
+```
+
+NOTE: Paths defined in config are interpreted relative to the YAML config file.
 
 
+## Outputs
 
-## Visualization of divergence relative to other protein families?
+Training writes model checkpoints and logs to `output_dir`.
+
+If `load_best_model_at_end=True`, the final saved model will be the best checkpoint according to the selected evaluation metric.
 
 ## Relevant notebooks
 
+TBD
+
 ## Data
 
-Raw data are available from [Ensembl / UniProt / Zenodo link].
-Processed datasets are provided in data/processed/.
+Raw data are available from [Zenodo link].
+Example processed datasets are provided in data/processed/.
 
 
 ---
 
-## 3. CITATION.cff (strongly recommended)
-
-This enables **one-click citation on GitHub**.
-
-```yaml
-cff-version: 1.2.0
-title: "Paper Title"
-authors:
-  - family-names: Le
-    given-names: Denise
-  - family-names: ...
-date-released: 2025-06-01
-version: 1.0.0
-doi: 10.XXXX/zenodo.XXXX

@@ -1,3 +1,0 @@
-
-distance_matrix: path/to/distance_matrix.csv #optional, if not provided will compute distances from embeddings
-output_results: path/to/output_results.csv

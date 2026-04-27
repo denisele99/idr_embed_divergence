@@ -22,6 +22,12 @@ env/
 data/neighbour_dist_test/
 data/neighbour_distance_matrix/
 
+#Other
+other_scripts/
+data_other/
+archive/
+scripts/wandb/
+
 # Results
 res/*
 !res/.gitkeep
