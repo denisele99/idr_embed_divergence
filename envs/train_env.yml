@@ -1,4 +1,4 @@
-name: train_env
+name: lm_train
 channels:
   - conda-forge
 dependencies:
