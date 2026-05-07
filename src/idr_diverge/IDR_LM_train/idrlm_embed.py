@@ -1,4 +1,3 @@
-import sys
 import os
 import torch
 import numpy as np
@@ -8,18 +7,25 @@ from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
 from transformers import BertConfig, BertModel, BertTokenizer, BertForMaskedLM
 
 from idr_diverge.IDR_LM_train.config import load_config
+from idr_diverge.utils.helpers import resolve_config_paths
 import argparse
 from pathlib import Path
 
-'''Adapted from IDP-LM paper (Pang & Liu, 2023)'''
+
+#Core logic adapted from 
+#Pang & Liu (2023) "IDP-LM: Prediction of protein intrinsic disorder and disorder functions based on language models"
+#https://github.com/YihePang/IDP-LM
+#Modified by Denise Le
+
 
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 #MODEL_CONFIG_PATH = 
 #OUT_DIR = '/home/moseslab/denise/embeddings/IDR_LM'
-DEFAULT_CONFIG = '/home/moseslab/denise/Paper/src/idr_diverge/IDR_LM_train/pretrain_args.yaml'
-args = load_config(DEFAULT_CONFIG)
+
+#DEFAULT_CONFIG = 'Paper/configs/idrlm_pretrain.yaml'
+#args = load_config(DEFAULT_CONFIG)
 
 def load_file_2_data(file_path):
     """Load FASTA file and return list of [id, sequence] pairs."""
@@ -79,9 +85,12 @@ def convert_sequences_to_inputs(sequences,tokenizer,vocab_list, max_seq_length):
 
     return inputs
 
+def resolve_path(config_file, rel_path):
+    base = Path(config_file).parent  # directory where config lives
+    return (base / rel_path).resolve()
 
 
-def get_encoding_from_model(sequences, inputs, model_path, config_path):
+def get_encoding_from_model(sequences, inputs, model_path, config_path,args,pretrain_config_path):
     """
     Generates embeddings from a pre-trained BERT model.
 
@@ -99,6 +108,11 @@ def get_encoding_from_model(sequences, inputs, model_path, config_path):
     
     if not(model_path):
         #Randomly initialized model
+        #print(config_path)
+        #print(Path.cwd())
+        config_path = resolve_path(pretrain_config_path,config_path)
+        #config_path = resolve_config_paths(args.model_config_path,config_path,path_keys={"bert_config"})
+        print(config_path)
         config = BertConfig.from_json_file(config_path)
         model = BertForMaskedLM(config=config)
     
@@ -184,9 +198,9 @@ def split_into_batches(lst, batch_size):
         yield lst[i:i + batch_size]
 
 
-def main(data, encoding_path, model_path,out_name='encodings'):
+def main(data, encoding_path, model_path,args,out_name='encodings', pretrain_config_path=None):
     """
-    Processes a dataset and generates embeddings, saving them to files.
+    Processes dataset and generates embeddings, saving them to files.
 
     Args:
         data (list): List of tuples where each tuple contains a sequence name and the corresponding sequence data.
@@ -236,7 +250,7 @@ def main(data, encoding_path, model_path,out_name='encodings'):
         inputs = convert_sequences_to_inputs(inputs_sequences, tokenizer, vocab_list, args.max_seq_length)
 
         # Get model encodings
-        encodings = get_encoding_from_model(inputs_sequences, inputs, model_path, config_path = args.model_config_path)
+        encodings = get_encoding_from_model(inputs_sequences, inputs, model_path, config_path = args.model_config_path, args=args, pretrain_config_path=pretrain_config_path)
 
             # Save encodings to files
             #for seq_name, encoding in zip([fd[0] for fd in final_data], encodings):
@@ -247,7 +261,7 @@ def main(data, encoding_path, model_path,out_name='encodings'):
         for seq_name, encoding in zip([fd[0] for fd in final_data], encodings):
             flattened_encoding = encoding.flatten()  # Flatten the encoding array
             csv_data.append([seq_name] + flattened_encoding.tolist())
-        #print(csv_data)
+     
         # Convert to DataFrame
         df = pd.DataFrame(csv_data)
 
@@ -261,7 +275,7 @@ def main(data, encoding_path, model_path,out_name='encodings'):
 
         
 
-def get_embedding_IDP(data_file, file_path, model_path,output_name):
+def get_embedding_IDP(data_file, file_path, model_path,output_name,args, pretrain_config_path):
     """
     Loads data and generates embeddings for IDP sequences using a pre-trained BERT model.
 
@@ -276,9 +290,10 @@ def get_embedding_IDP(data_file, file_path, model_path,output_name):
     # Load data and process sequences
     test_data = load_file_2_data(data_file)
     print("IDP-BERT processing sequences:", len(test_data))
-    main(test_data, file_path, model_path,output_name)
+    main(test_data, file_path, model_path,args,output_name, pretrain_config_path)
     print("Done")
 
+DEFAULT_CONFIG = 'Paper/configs/idrlm_pretrain.yaml'
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -286,7 +301,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        "seq_input_path",
+        "--seq_input_path",
         type=Path,
         help="Path to the input FASTA file containing protein sequences."
     )
@@ -298,6 +313,15 @@ def parse_args():
         help=(
             "Optional path to a trained IDR_LM checkpoint. "
             "If omitted, a randomly initialized model will be used."
+        )
+    )
+    
+    parser.add_argument(
+        "--pretrain-config",
+        type=Path,
+        default=DEFAULT_CONFIG,
+        help=(
+            "Config file for pretrained model settings (Default should be /configs/idrlm_pretrain.yaml). "
         )
     )
 
@@ -322,6 +346,9 @@ def parse_args():
 
 if __name__ == "__main__":
     args_parse = parse_args()
+    
+    
+    args_config = load_config(args_parse.pretrain_config)
 
     seq_input_path = args_parse.seq_input_path
     model_path = args_parse.model_path
@@ -341,4 +368,6 @@ if __name__ == "__main__":
         file_path=str(args_parse.out_dir),
         model_path=str(model_path) if model_path is not None else None,
         output_name=output_name,
+        pretrain_config_path = str(args_parse.pretrain_config),
+        args=args_config
     )

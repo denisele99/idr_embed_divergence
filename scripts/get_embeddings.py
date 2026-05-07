@@ -5,11 +5,9 @@ import yaml
 from idr_diverge.utils.helpers import resolve_config_paths
 
 
-#DEFAULT_DATA_DIR = Path("/home/moseslab/denise/embeddings/data_to_embed/")
-#DEFAULT_RESULT_DIR = Path("/home/moseslab/denise/embeddings/RES/")
-
-#DEFAULT_ESM_SCRIPT = Path("/home/moseslab/denise/Paper/src/idr_diverge/embed/esm_embed.py")
-#DEFAULT_IDR_LM_SCRIPT = Path("/home/moseslab/denise/Paper/src/idr_diverge/embed/idrlm_embed.py")
+"""
+This script was generated or refined with assistance from ChatGPT (OpenAI) and have been reviewed and modified for this project by the author.
+"""
 
 
 def parse_args():
@@ -36,17 +34,20 @@ def parse_args():
                 "esm_script",
                 "idr_lm_script",
                 "bert_config",
+                "pretrain_config",
                 "model_file",
                 "data_dir",
                 "result_dir",
             },
         )
+        
+        #print(config)
 
     parser = argparse.ArgumentParser(
         description="Run embedding scripts for protein sequence files.",
         parents=[config_parser]
     )
-
+    
     parser.add_argument(
         "--embed-type",
         choices=["esm", "IDR_LM", "IDR_LM_random"],
@@ -72,12 +73,19 @@ def parse_args():
         default=config.get("model_file"),
         help="Path to the trained model checkpoint. Required for IDR_LM.",
     )
+    
+    parser.add_argument(
+        "--pretrain-config",
+        type=Path,
+        default=config.get("pretrain_config"),
+        help="Path to the pretraining configuration file. Required for IDR_LM.",
+    )
 
     parser.add_argument(
         "--data-dir",
         type=Path,
         default=config.get("data_dir"),
-        help="Directory containing input FASTA files.",
+        help="Directory containing input FASTA files or path to a single FASTA file.",
     )
 
     parser.add_argument(
@@ -102,6 +110,7 @@ def parse_args():
 args = parse_args()
 ESM_SCRIPT = args.esm_script
 IDR_LM_SCRIPT = args.idr_lm_script
+PRETRAIN_CONFIG = args.pretrain_config
 
 
 def get_input_files(data_dir: Path) -> list[Path]:
@@ -218,15 +227,17 @@ def run_idr_lm_embeddings(
             output_name = f"randominit_{input_file.stem}_{model_tag}_IDRLM"
             
             cmd = ["python",str(IDR_LM_SCRIPT),
-            str(input_file),
+            "--seq_input_path", str(input_file),
             "--out-dir", str(result_dir),
+            "--pretrain-config", str(PRETRAIN_CONFIG),
             "--output-name", output_name]
          
 
         else:
             cmd = ["python",str(IDR_LM_SCRIPT),
-                    str(input_file),
+                    "--seq_input_path",str(input_file),
                     "--model-path", str(model_file),
+                    "--pretrain-config", str(PRETRAIN_CONFIG),
                     "--out-dir", str(result_dir),
                     "--output-name", output_name]
         output_prefix = result_dir / output_name

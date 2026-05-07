@@ -10,7 +10,10 @@ import pandas as pd
 import torch
 from Bio import SeqIO
 
-# Assumes read_fasta is already available in your environment
+
+#Sections of code based on implementation from:
+#https://github.com/facebookresearch/esm 
+#Modified by Denise Le
 
 
 # ---------------------------

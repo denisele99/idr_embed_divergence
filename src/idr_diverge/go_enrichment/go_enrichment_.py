@@ -4,7 +4,6 @@ import pandas as pd
 import os
 from typing import Dict, List, Mapping, Sequence, Optional
 from collections import defaultdict, Counter
-import obonet
 from goatools.obo_parser import GODag
 from goatools.go_enrichment import GOEnrichmentStudy
 #from pygosemsim import graph,similarity
@@ -17,6 +16,9 @@ from idr_diverge.distances.embed_distance import EmbedDistanceMatrix
 from idr_diverge.utils.helpers import load_config, resolve_config_paths
 from idr_diverge.distances.compute_ndist import  _load_embeddings
 
+
+#This module was written by the Denise Le, with some functions edited and refactored with assistance from ChatGPT (OpenAI) for clarity and maintainability. 
+#All changes were reviewed and validated by the author.
 
 DEFAULT_CONFIG_PATH = (
     Path(__file__).resolve().parents[3] / "configs" / "go_config.yaml"

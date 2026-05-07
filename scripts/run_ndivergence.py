@@ -63,10 +63,6 @@ class FNDconfig:
     output_results: Path = Path("fnd_results.csv")
 
 @dataclass(frozen=True)
-class RunConfig:
-    verbose: bool = True
-
-@dataclass(frozen=True)
 class PipelineConfig:
     inputs: InputsConfig
     outputs: OutputsConfig
@@ -74,7 +70,6 @@ class PipelineConfig:
     neighbour_divergence: NeighbourDivergenceConfig
     random_neighbour_divergence: RandomNeighbourDivergenceConfig
     ortholog_filter: OrthologFilterConfig
-    #run: RunConfig
     FND: FNDconfig
     raw: Dict[str, Any]  # keep raw dict for debugging/forward compatibility
 
@@ -143,8 +138,6 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         min_species_coverage=float(cfg["ortholog_filter"].get("min_species_coverage", 0.5)),
         min_species=int(cfg["ortholog_filter"].get("min_species", 10)),
     )
-
-    #run = RunConfig(verbose=bool(cfg["run"].get("verbose", True)))
     
     FND = FNDconfig( #TODO
         enabled=bool(cfg["calculate_FND"].get("enabled", False)),
@@ -160,7 +153,6 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         neighbour_divergence=neighbour_div,
         random_neighbour_divergence=random_neighbour_div,
         ortholog_filter=ortholog_filter,
-        #run=run,
         FND=FND,
         raw=cfg,
     )

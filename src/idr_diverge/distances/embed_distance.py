@@ -1,8 +1,12 @@
-#Modified from /home/moseslab/denise/Thesis/src/analysis/analyze_NN_dist.py
-
 from sklearn.metrics import pairwise_distances, pairwise
 import pandas as pd
 import numpy as np
+
+#Based on implementation from:
+#Littmann et al. (2021) "Embeddings from deep learning transfer GO annotations beyond homology"
+#https://github.com/Rostlab/goPredSim/
+#Modified by Denise Le
+#modifications include addition of add_to_distance_matrix function
 
 
 class EmbedDistanceMatrix:

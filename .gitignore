@@ -23,10 +23,13 @@ data/neighbour_dist_test/
 data/neighbour_distance_matrix/
 
 #Other
-other_scripts/
+scripts_other/
 data_other/
 archive/
 scripts/wandb/
+res_other/
+src/idr_diverge/visualize/plotting.py
+
 
 # Results
 res/*

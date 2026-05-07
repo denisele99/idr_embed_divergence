@@ -24,11 +24,11 @@ query_all: false # If true, run enrichment for all IDs in target_embeddings. If 
 
 # Embedding file used to find neighbours.
 # Typically human IDR or domain embeddings (.csv or .h5). query ids should start with HUMAN_
-target_embeddings: ../data/embed/human_idrs_pos_updated_esm.csv #/home/moseslab/denise/Paper/data/embed/human_PFAM_esm_updated.csv 
+target_embeddings: ../data/embeddings/human_idrs_pos_updated_esm.csv #/home/moseslab/denise/Paper/data/embed/human_PFAM_esm_updated.csv 
 
 # BLAST output table, uses default format
 # Required only when search_method = BLAST
-target_blast_output: ../data/blast_res/human_idrs_pos_blast_out_names.tsv #/home/moseslab/denise/Paper/data/blast_res/human_idrs_pos_blast_out.tsv #../data/blast_res/human_idrs_pos.txt
+target_blast_output: ../data/human_idrs_blast_output.tsv #/home/moseslab/denise/Paper/data/blast_res/human_idrs_pos_blast_out.tsv #../data/blast_res/human_idrs_pos.txt
 
 # Output CSV containing enriched GO terms
 output: ../res/go_enrich/test.csv #knn_enrichment_goa_idrs_a01_04_01.csv #CDKPFAM_bg_nodup_a01_03_20.csv

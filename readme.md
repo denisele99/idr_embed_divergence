@@ -1,8 +1,8 @@
 # idr_embed_divergence
 
 ## Overview
-This repository contains code to reproduce all analyses and figures
-presented in the manuscript.
+This repository contains code to reproduce selected analyses in the manuscript.
+
 
 ## Contents
 Data
@@ -11,6 +11,8 @@ Neighbour Distance and Family Neighbour Divergence (FND) Calculation
 
 
 ## Installation
+
+Codes were originally run in Linux (version)
 
 ### 1. Clone repository
 ```bash
@@ -30,8 +32,9 @@ conda env create -f envs/train_env.yml
 conda activate lm_train
 ```
 
-### 3. Install package
+### 3. Install idr_diverge package
 ```bash
+cd idr_embed_divergence
 pip install -e .
 ```
 
@@ -176,6 +179,17 @@ FND is the difference between the average paralog neighbour distance and the exp
 
 ---
 
+## Requirements
+
+Install fnd_env environment
+
+```bash id="ccjlwm"
+conda env create -f envs/fnd_env.yml
+conda activate fnd_env
+cd idr_embed_diverge
+pip install -e .
+```
+
 ## Command
 
 ```bash id="0kjxzk"
@@ -186,10 +200,13 @@ python run_ndivergence.py ../configs/ndist_config.yml
 
 ## Input files
 
-genes of families to embed:
-family_to_genes.json
-{"CDKs": {GENE1, GENE2, ...}}
+- background embeddings 
+- ortholog embeddings (file or directory)
+- map of family name -> list of genes to embed (family_to_genes.json)
 
+family_to_genes.json
+{"CDK": [GENE1, GENE2, ...]}
+Where GENE is the Uniprot ID
 
 ## Config
 
@@ -248,7 +265,7 @@ neighbour_divergence:
   return_mode: per_gene
 
 random_neighbour_divergence:
-  enabled: true
+  enabled: false
 
   # Number of random segments sampled for each background estimate.
   sample_size: 100
@@ -260,7 +277,7 @@ random_neighbour_divergence:
   out_random: ../res/ndist/rand_ndist/random_idr_diverge
 
 calculate_FND:
-  enabled: true
+  enabled: false
 
   # Background neighbour-distance file (.pkl) or directory.
   # If omitted, background distances will be recomputed from random samples.
@@ -286,15 +303,25 @@ calculate_FND:
 For `dist_type: between`, values are typically stored per family and species:
 
 ```text id="d5i9kl"
-family -> species -> neighbour distance
+family -> species -> neighbour distance 
+(neighbour distance between gene_1_IDR_1 human vs gene_2_IDR_1 species, neighbour distance between gene_2_IDR_1 human vs gene_1_IDR_1 species)
+
+{'O94921_IDR_1_130|P21127_IDR_1_420': {'ENSABRP': [5712.5, 5714.5], 'ENSACCP': [5607.0, 5716.0], .. }}
+
 ```
 
-For `dist_type: within`, values are stored per segment/gene.
+For `dist_type: within`, values are stored per segment/gene by default.
 
 EXAMPLE OF OUTPUT DICT
 
 {GENE1_IDR_1 | GENE2_IDR_1: {SPP: Distance, SPP2: Distance} }
-{'O94921_IDR_1_130|P21127_IDR_1_420': {'ENSABRP': [5712.5, 5714.5], 'ENSACCP': [5607.0, 5716.0], .. }}
+
+return_mode: per_gene (default)
+{'Q15746_IDR_1767_1803': {'ENSABRP': 1.5, 'ENSACAP': 1.5, 'ENSACCP': 2.0}, ...}
+
+
+return_mode: aggregate
+{'ENSABRP': [1.5, 7.0, ..], 'ENSACCP': [1.5, 1.0, ..], ... }
 
 
 ### FND Output
@@ -302,8 +329,8 @@ EXAMPLE OF OUTPUT DICT
 `output_results` is a CSV containing one row per family (or family/species pair), for example:
 
 ```text id="5q2n3s"
-Group_id,log_mean Divergence_per_ortholog,FND,1samp_ttest_stat,1samp_ttest_pvalue #TODO change example
-100,{'ENSCSEP': 2.10797268245514, 'ENSPFOP': 1.7439702704850224},2.15,49.75,1.15e-108
+Group_id,log_mean Divergence_per_ortholog,FND,1samp_ttest_stat,1samp_ttest_pvalue
+CDK,{'ENSTRUP': 1.55, 'ENSAPLP': 2.00,..}, 2.29,50.75,3.31e-108
 ```
 
 Higher positive FND values indicate paralogous segments are more diverged than expected from the ortholog/background baseline.
@@ -381,15 +408,44 @@ src/idr_diverge/IDR_LM_train/
 - install lm_train environment (see train_env yaml)
 - conda activate lm_train
 
+Install lm_train environment
+
+```bash id="ccjlwm"
+conda env create -f lm_train.yml
+conda activate lm_train
+cd idr_embed_diverge
+pip install -e .
+```
+
 ## Files
 
 ```text id="8ikn9h"
 - bert_config.json -> model config
-- config.py -> structure of config 
 - idrlm_pretrain.yaml -> pretrain args
 - idrlm_train.py -> main training script
-- idrlm_embed.py -> generate IDR_LM embeddings from pretrained/model checkpoint or randomly initialized model
+- idrlm_embed.py -> generate IDR_LM embeddings from pretrained/model checkpoint or randomly initialized model (called by scripts/get_embeddings.py)
 ```
+
+## Inputs
+- IDR training data from mobi-DB (download from zenodo link: ___) (data/sequences/IDR_train)
+
+## Configs
+
+NOTE: results automatically logged to wandb, requires account but could disable
+
+Change config paths
+ idrlm_pretrain.yaml -> pretrain args
+#logging
+wandb_project: idr_lm
+wandb_run_name: run1
+
+#paths
+train_data_path: /home/moseslab/denise/Paper/data_other/seqs/human_idrs.fasta #../data/seqs/human_idrs_pos_updated_labels.fasta #/home/moseslab/denise/IDR_LM/data/sequences/mobidb_idrs_27/mobi_idrs_30M.fasta #TODO change to sample dataset
+model_config_path: ./bert_config.json #../src/idr_diverge/IDR_LM_train/bert_config.json #Change to absolute path
+resume_checkpoint_path: null #Optional: load weights from a previous training run instead of starting from scratch. Set to None to initialize a new model from model_config_path
+checkpoint_output_dir: ../res/model_checkpoints
+final_model_dir: ../res/model_checkpoints/best
+
 
 ## Training command
 

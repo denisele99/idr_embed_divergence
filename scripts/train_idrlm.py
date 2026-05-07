@@ -1,10 +1,9 @@
-from __future__ import absolute_import
 import wandb
 import os
 from pathlib import Path
 import numpy as np
 import time
-from datasets import Dataset, DatasetDict, load_dataset
+from datasets import Dataset, DatasetDict
 from typing import Dict, List
 import argparse
 
@@ -20,6 +19,11 @@ from transformers import (
 )
 
 from idr_diverge.IDR_LM_train.config import load_config
+
+
+
+#Citations: sections of code from huggingface transformers documentation and various HuggingFace example scripts for language model pretraining, adaptations to structure done by chatgpt
+
 
 
 #DEFAULT_CONFIG_PATH = './pretrain_args.yaml'

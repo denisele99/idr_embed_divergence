@@ -4,12 +4,15 @@
 import pandas as pd
 import argparse
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple, Optional, Any
+from typing import Dict, List, Any
 
 from idr_diverge.go_enrichment.go_enrichment_ import DistanceMatrix,go_enrichment_from_blast,go_enrichment_random, load_go_annotations, _extract_gene_id
 from idr_diverge.distances.compute_ndist import _load_embeddings
 from idr_diverge.utils.helpers import load_config, resolve_config_paths
 
+"""
+Portions of this script were generated or refined with assistance from ChatGPT (OpenAI) and have been reviewed and modified for this project by the author.
+"""
 
 def parse_query_ids(value: List[str]) -> List[str]:
     """Parse comma-separated IDs from CLI."""
@@ -65,7 +68,6 @@ def main():
     
     output_path = get_param(args, config, "output", "go_enrichment_result.csv")
     
-    #add these to params in cli?
     go_annotation_path = config.get("go_annotations")
     go_obo_path = config.get("go_obo")
     target_embeddings = config.get("target_embeddings")
