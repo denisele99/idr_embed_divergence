@@ -14,6 +14,11 @@ from idr_diverge.utils.helpers import load_config, resolve_config_paths
 Portions of this script were generated or refined with assistance from ChatGPT (OpenAI) and have been reviewed and modified for this project by the author.
 """
 
+#Command-line interface for k-NN GO enrichment pipeline.
+#Handles argument parsing and loading config file, and makes calls to embedding scripts in idr_diverge/embed
+#This script was developed with assistance from ChatGPT (OpenAI) and has been reviewed and modified by the author.
+
+
 def parse_query_ids(value: List[str]) -> List[str]:
     """Parse comma-separated IDs from CLI."""
     ids = [x.strip() for x in value.split(",") if x.strip()]

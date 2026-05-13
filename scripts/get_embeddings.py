@@ -5,9 +5,11 @@ import yaml
 from idr_diverge.utils.helpers import resolve_config_paths
 
 
-"""
-This script was generated or refined with assistance from ChatGPT (OpenAI) and have been reviewed and modified for this project by the author.
-"""
+
+#Command-line interface for generating embeddings pipeline.
+#Handles argument parsing and loading config file, and makes calls to embedding scripts in idr_diverge/embed
+#This script was developed with assistance from ChatGPT (OpenAI) and has been reviewed and modified by the author.
+
 
 
 def parse_args():
