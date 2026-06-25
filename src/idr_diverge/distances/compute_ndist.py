@@ -17,7 +17,7 @@ from idr_diverge.distances.embed_distance import EmbedDistanceMatrix
 
 #Implements the core logic for computing neighbour distances between protein segment embeddings, focuses on comparing orthologous regions across species. Includes family neighbour divergence (FND) calculation.
 
-#This module was written by the Denise Le, with some functions edited and refactored with assistance from ChatGPT (OpenAI) for clarity and maintainability. 
+#This module was written by Denise Le, with some functions edited and refactored with assistance from ChatGPT (OpenAI) for clarity and maintainability. 
 #All changes were reviewed and validated by the author.
 
 

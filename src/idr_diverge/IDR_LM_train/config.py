@@ -4,6 +4,10 @@ from typing import Optional
 import yaml
 
 
+#Config utilities for IDR_LM pretraining script.
+#Dataclass structures and config loading logic were generated with assistance from ChatGPT (OpenAI) and modified by Denise Le.
+
+
 @dataclass
 class TrainingConfig:
     # Optimization

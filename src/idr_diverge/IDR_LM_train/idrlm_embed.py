@@ -293,8 +293,9 @@ def get_embedding_IDP(data_file, file_path, model_path,output_name,args, pretrai
     main(test_data, file_path, model_path,args,output_name, pretrain_config_path)
     print("Done")
 
-DEFAULT_CONFIG = 'Paper/configs/idrlm_pretrain.yaml'
+DEFAULT_CONFIG = 'Paper/configs/idrlm_pretrain.yaml' #TODO
 
+# Argument parser structure adapted with assistance from ChatGPT (OpenAI) and was reviewed and modified by the author.
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Generate IDR_LM embeddings for protein sequences in a FASTA file."

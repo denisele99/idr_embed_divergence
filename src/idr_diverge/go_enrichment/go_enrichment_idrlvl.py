@@ -3,10 +3,8 @@ import numpy as np
 import pandas as pd
 import os
 from typing import Dict, List, Mapping, Sequence, Optional
-from collections import defaultdict, Counter
 from goatools.obo_parser import GODag
 from goatools.go_enrichment import GOEnrichmentStudy
-#from pygosemsim import graph,similarity
 from pygosemsim import graph as go_graph, similarity
 from functools import lru_cache
 from pathlib import Path
@@ -76,7 +74,7 @@ def load_go_annotations(path:str):
     return go_annot
 
 
-config_data = load_config(Path(DEFAULT_CONFIG_PATH))
+config_data = load_config(Path(DEFAULT_CONFIG_PATH)) #TODO
 
 config_data = resolve_config_paths(config=config_data, config_path=str(DEFAULT_CONFIG_PATH),
                                   path_keys={'go_annotations', 'go_obo'})
@@ -130,7 +128,8 @@ def count_go_terms(
 
     If deduplicate_genes=True, repeated genes are counted once.
     """
-    gene_list = list(genes)
+    #gene_list = list(genes)
+    gene_list = [_extract_gene_id(g) for g in genes]
     if deduplicate_genes:
         gene_list = list(set(gene_list))  # stable unique
 
@@ -142,13 +141,17 @@ def count_go_terms(
     
 
 def prepare_go_enrichment(population_genes, obodag, go_annotation_dict, alpha):
+    #TODO add types
+    #gene_to_go_terms = {gene: set(go_annotation_dict.get(gene, []))
+    #                        for gene in population_genes}
     
-    gene_to_go_terms = {gene: set(go_annotation_dict.get(gene, []))
-                            for gene in population_genes}
+    #where population_genes is the background segment/idr set
+    
+    segment_to_parent_go_terms = {seg: go_annotation_dict.get(seg, []) for seg in population_genes}
     
     return GOEnrichmentStudy(
         population_genes,
-        gene_to_go_terms,
+        segment_to_parent_go_terms, #gene_to_go_terms,
         obodag,
         propagate_counts=True,
         alpha=alpha,
@@ -190,11 +193,11 @@ class DistanceMatrix:
         #self.go_terms_background = {id.split("_")[0]: self.go_annotation_dict.get(id.split("_")[0], []) for id in self.distance_ids} #TODO change this?
         #background_genes = list(go_annotation_dict.keys())
         
-        #background_genes = [_extract_gene_id(id) for id in self.distance_ids] #allows duplicates
-        background_genes = list(set([_extract_gene_id(id) for id in self.distance_ids]))
-        self.background_genes = background_genes
+        background_gene_segments = [_extract_gene_id(id) for id in self.distance_ids] #allows duplicates
+        #background_genes = list(set([_extract_gene_id(id) for id in self.distance_ids]))
+        self.background_genes = background_gene_segments
         
-        self.go_terms_background_count = count_go_terms(genes = background_genes, go_annotation_dict= go_annotation_dict)
+        self.go_terms_background_count = count_go_terms(genes = background_gene_segments, go_annotation_dict= go_annotation_dict)
         
         self.go_obo_path = go_obo_path
         self.obodag = GODag(go_obo_path)
