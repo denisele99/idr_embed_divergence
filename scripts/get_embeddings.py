@@ -8,7 +8,7 @@ from idr_diverge.utils.helpers import resolve_config_paths
 
 #Command-line interface for generating embeddings pipeline.
 #Handles argument parsing and loading config file, and makes calls to embedding scripts in idr_diverge/embed
-#This script was developed with assistance from ChatGPT (OpenAI) and has been reviewed and modified by the author.
+#This script was developed with assistance from ChatGPT (OpenAI) and has been reviewed and modified by Denise Le.
 
 
 

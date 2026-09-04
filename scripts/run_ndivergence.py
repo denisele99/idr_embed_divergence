@@ -9,6 +9,9 @@ import numpy as np
 from idr_diverge.distances.compute_ndist import ComputeNDistanceDict, _load_embeddings, _load_ortholog_embeddings, _parse_ids,save_pickle, load_fam_map, calc_FND
 from idr_diverge.utils.helpers import read_pickle, resolve_config_paths
 
+#Command-line interface for computing embedding neighbour distances/divergence and family neighbour divergence (FND).
+#Handles argument parsing and loading config file, and makes calls to embedding scripts in idr_diverge/compute_ndist
+#This script was developed with assistance from ChatGPT (OpenAI) and has been reviewed and modified by Denise Le.
 
 @dataclass(frozen=True)
 class InputsConfig:

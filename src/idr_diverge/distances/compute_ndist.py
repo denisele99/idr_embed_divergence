@@ -525,7 +525,7 @@ class ComputeNDistanceDict(): #return distance dictionary
     
     
     def between_segment_single_spp(self, gene_pos_list) -> np.ndarray:        
-        distance_matrix = self.emb_matrix.distance_matrix
+        #distance_matrix = self.emb_matrix.distance_matrix
         ids = self.ids
         select_ids = [id for id in ids if any(g in id for g in gene_pos_list)]
         

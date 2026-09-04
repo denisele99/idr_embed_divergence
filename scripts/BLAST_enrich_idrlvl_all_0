@@ -1,0 +1,22 @@
+/media/data/.conda/envs/go_env/lib/python3.10/site-packages/goatools/__init__.py:2: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import get_distribution, DistributionNotFound
+Traceback (most recent call last):
+  File "/home/moseslab/denise/Paper/scripts/run_go_enrichment.py", line 12, in <module>
+    from idr_diverge.go_enrichment.go_enrichment_idrlvl import DistanceMatrix,go_enrichment_from_blast,go_enrichment_random, load_go_annotations, _extract_gene_id
+  File "/home/moseslab/denise/Paper/src/idr_diverge/go_enrichment/go_enrichment_idrlvl.py", line 83, in <module>
+    GO_ANNOTATIONS = load_go_annotations(config_data.get("go_annotations"))
+  File "/home/moseslab/denise/Paper/src/idr_diverge/go_enrichment/go_enrichment_idrlvl.py", line 73, in load_go_annotations
+    go_annot = read_go_annotations(annot_df.dropna(subset=['Gene Ontology IDs']))
+  File "/home/moseslab/denise/Paper/src/idr_diverge/go_enrichment/go_enrichment_idrlvl.py", line 60, in read_go_annotations
+    for _, row in go_file.iterrows():
+  File "/home/moseslab/.local/lib/python3.10/site-packages/pandas/core/frame.py", line 1559, in iterrows
+    s = klass(v, index=columns, name=k).__finalize__(self)
+  File "/home/moseslab/.local/lib/python3.10/site-packages/pandas/core/series.py", line 588, in __init__
+    data = SingleBlockManager.from_array(data, index, refs=refs)
+  File "/home/moseslab/.local/lib/python3.10/site-packages/pandas/core/internals/managers.py", line 1870, in from_array
+    array = maybe_coerce_values(array)
+  File "/home/moseslab/.local/lib/python3.10/site-packages/pandas/core/internals/blocks.py", line 2735, in maybe_coerce_values
+    values = ensure_wrapped_if_datetimelike(values)
+  File "/home/moseslab/.local/lib/python3.10/site-packages/pandas/core/construction.py", line 481, in ensure_wrapped_if_datetimelike
+    def ensure_wrapped_if_datetimelike(arr):
+KeyboardInterrupt

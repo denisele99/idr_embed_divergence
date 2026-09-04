@@ -20,10 +20,8 @@ from transformers import (
 
 from idr_diverge.IDR_LM_train.config import load_config
 
-
-
-#Citations: sections of code from huggingface transformers documentation and various HuggingFace example scripts for language model pretraining, adaptations to structure done by chatgpt
-
+# Portions of this code are adapted from Hugging Face Transformers documentation and example scripts for language model pretraining. 
+# Structural modifications were made with assistance from ChatGPT (OpenAI) and further refined by Denise Le.
 
 
 #DEFAULT_CONFIG_PATH = './pretrain_args.yaml'

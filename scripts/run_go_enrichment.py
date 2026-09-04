@@ -6,17 +6,16 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Any
 
-from idr_diverge.go_enrichment.go_enrichment_ import DistanceMatrix,go_enrichment_from_blast,go_enrichment_random, load_go_annotations, _extract_gene_id
+#from idr_diverge.go_enrichment.go_enrichment_ import DistanceMatrix,go_enrichment_from_blast,go_enrichment_random, load_go_annotations, _extract_gene_id
+
+#TODO revert to original after testing go enrichment with idr-level IDs instead of gene-level IDs.
+from idr_diverge.go_enrichment.go_enrichment_idrlvl import DistanceMatrix,go_enrichment_from_blast,go_enrichment_random, load_go_annotations, _extract_gene_id
 from idr_diverge.distances.compute_ndist import _load_embeddings
 from idr_diverge.utils.helpers import load_config, resolve_config_paths
 
-"""
-Portions of this script were generated or refined with assistance from ChatGPT (OpenAI) and have been reviewed and modified for this project by the author.
-"""
 
 #Command-line interface for k-NN GO enrichment pipeline.
-#Handles argument parsing and loading config file, and makes calls to embedding scripts in idr_diverge/embed
-#This script was developed with assistance from ChatGPT (OpenAI) and has been reviewed and modified by the author.
+#This script was developed with assistance from ChatGPT (OpenAI) and has been reviewed and modified by Denise Le.
 
 
 def parse_query_ids(value: List[str]) -> List[str]:
@@ -71,24 +70,27 @@ def main():
     k = get_param(args, config, "k", 50)
     alpha = get_param(args, config, "alpha", 0.01)
     
-    output_path = get_param(args, config, "output", "go_enrichment_result.csv")
+    output_path = get_param(args, config, "output_path", "go_enrichment_result.csv")
     
     go_annotation_path = config.get("go_annotations")
     go_obo_path = config.get("go_obo")
-    target_embeddings = config.get("target_embeddings")
-    target_blast_output = config.get("target_blast_output")
+    target_embeddings = get_param(args, config, "dataset", None) or config.get("target_embeddings")
+    target_blast_output = get_param(args, config, "dataset", None) or config.get("target_blast_output")
     
     query_ids = get_param(args, config, "query_ids", None)
-    query_all = config.get("query_all", True)
-    
-    
+   
     if query_ids not in (None, "null"):
         query_ids = parse_query_ids(query_ids)
         print("query ids:", query_ids)
-    elif not query_all and query_ids is None:
-        raise ValueError("No query IDs provided and query_all is False.")
+        query_all = config.get("query_all", False)
+    #elif not query_all and query_ids is None:
+    #    raise ValueError("No query IDs provided and query_all is False.")
+    elif query_ids is None:
+        query_all = True
     #else:
-    #    query_all = True
+    #    query_all = True'
+    
+    print("Using:", output_path, target_embeddings, query_ids, query_all, search_method, k, alpha)
     
     
     if go_obo_path is None:
@@ -127,11 +129,12 @@ def main():
         #Background should be same as genes/ids found in embedding background
         dataset_path = target_embeddings
         distance_ids = list(_load_embeddings(target_embeddings).iloc[:,0]) #TODO is this correct?
-        background_genes =list(set([_extract_gene_id(id) for id in distance_ids])) #no duplicates
+        #background_genes =list(set([_extract_gene_id(id) for id in distance_ids])) #no duplicates
         
         go_enrichment_from_blast(blast_tsv_path=blast_path,
             query_ids = query_ids,
-            background_genes = background_genes,
+            background_ids = distance_ids,
+            #background_genes = background_genes,
             k=k,
             alpha=alpha,
             out_csv=str(output_path),
@@ -145,7 +148,7 @@ def main():
             raise ValueError("RANDOM mode requires 'target_embeddings' in config or --dataset.")
 
         all_ids = list(_load_embeddings(dataset_path).iloc[:,0])
-        background_genes = list(set([_extract_gene_id(id) for id in all_ids]))
+        #background_genes = list(set([_extract_gene_id(id) for id in all_ids]))
         #background_genes = list(go_annotation_dict.keys())
 
         if query_all or query_ids is None:
@@ -153,7 +156,7 @@ def main():
         
         enrich_df = go_enrichment_random(
             query_ids=query_ids,
-            background_genes=background_genes,
+            background_ids=all_ids,
             k=k,
             alpha=alpha,
             go_annotation_dict=go_annotation_dict,
